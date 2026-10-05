@@ -151,8 +151,12 @@ final class WikiStoreTests: XCTestCase {
       XCTAssertThrowsError(try store.ingest(slug: "자료", title: "자료", body: "내용", url: url))
     }
     _ = try original()
+    let direct = try store.upsert(
+      WikiPage(slug: "direct-note", title: "직접 작성", body: "출처 없는 메모"), expectedRevision: 0)
+    XCTAssertTrue(direct.sources.isEmpty)
     XCTAssertThrowsError(
-      try store.upsert(WikiPage(slug: "문서", title: "제목", body: "내용"), expectedRevision: 0))
+      try store.upsert(
+        WikiPage(slug: "문서", title: "제목", body: "내용", sources: ["missing"]), expectedRevision: 0))
     XCTAssertThrowsError(
       try store.upsert(
         WikiPage(

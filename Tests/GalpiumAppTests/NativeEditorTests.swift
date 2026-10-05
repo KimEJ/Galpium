@@ -18,7 +18,7 @@ final class NativeEditorTests: XCTestCase {
       XCTAssertEqual(model.status, "active")
       model.status = "archived"
       model.showSources()
-      XCTAssertEqual(model.sidebarDestination, .sources)
+      XCTAssertEqual(model.sidebarDestination, .materials)
       model.selectedSource = "previous-source"
       model.showArchive()
       XCTAssertEqual(model.sidebarDestination, .archive)
