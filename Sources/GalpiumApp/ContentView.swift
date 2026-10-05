@@ -12,7 +12,7 @@ struct ContentView: View {
     model.section == "materials"
       ? Binding(
         get: { model.materialQuery },
-        set: model.changeMaterialSearch) : $model.search
+        set: { model.changeMaterialSearch($0) }) : $model.search
   }
   var body: some View {
     VStack(spacing: 0) {
