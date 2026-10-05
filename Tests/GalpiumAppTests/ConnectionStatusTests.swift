@@ -9,6 +9,7 @@ import XCTest
 final class ConnectionStatusTests: XCTestCase {
   func testMenuBarUpdatesConnectionAndRetainsWindowActions() async throws {
     try await MainActor.run {
+      _ = NSApplication.shared
       let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
       defer { try? FileManager.default.removeItem(at: root) }
       let model = AppModel(root: root)
