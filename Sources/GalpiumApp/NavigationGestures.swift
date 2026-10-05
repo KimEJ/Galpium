@@ -22,7 +22,7 @@ struct NavigationSwipeAnimation: ViewModifier {
         Theme.field
         content
           .offset(x: amount * min(128, geometry.size.width * 0.22))
-          .opacity(1 - progress * 0.08)
+          .opacity(1 - Double(progress) * 0.08)
         if progress > 0 {
           Image(systemName: backward ? "chevron.left" : "chevron.right")
             .font(.system(size: 18, weight: .semibold))
@@ -30,7 +30,7 @@ struct NavigationSwipeAnimation: ViewModifier {
             .frame(width: 36, height: 36)
             .background(Theme.paper, in: Circle())
             .padding(.horizontal, 14)
-            .opacity(min(1, progress * 3))
+            .opacity(Double(min(1, progress * 3)))
             .allowsHitTesting(false).accessibilityHidden(true)
         }
       }.clipShape(RoundedRectangle(cornerRadius: 14))
