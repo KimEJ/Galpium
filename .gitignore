@@ -1,0 +1,16 @@
+.build/
+dist/
+.demo/
+.swiftpm/
+.DS_Store
+*.xcuserstate
+__pycache__/
+
+# Local libraries, private authoring notes and inspection artifacts
+.impeccable/
+benchmarks/
+*.sqlite3
+*.sqlite3-*
+*.db
+.env
+.env.*

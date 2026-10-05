@@ -1,0 +1,19 @@
+{
+  "name": "galpium",
+  "version": "0.0.1",
+  "description": "로컬 Galpium 위키의 원본과 출처, 문서 및 변경 이력을 관리합니다.",
+  "author": {
+    "name": "Galpium contributors"
+  },
+  "license": "Apache-2.0",
+  "skills": "./skills",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Galpium",
+    "shortDescription": "내 Mac의 원본과 지식을 연결하는 위키",
+    "longDescription": "원본을 보존하고 출처가 있는 Markdown을 작성합니다. 로컬 앱과 MCP가 동일한 SQLite 저장소, 개정 충돌 검사와 변경 이력을 사용합니다.",
+    "developerName": "Galpium contributors",
+    "category": "Productivity",
+    "capabilities": []
+  }
+}

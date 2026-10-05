@@ -1,0 +1,21 @@
+name: macOS verification
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Swift and system SQLite
+        run: swift --version && sqlite3 --version
+      - name: Core, editor and MCP regressions
+        run: sh scripts/check.sh
+      - name: Release app bundle
+        run: sh scripts/build-app.sh
+      - name: Packaged MCP regression
+        run: python3 scripts/test_mcp.py
+      - name: Packaged offline model regression
+        run: python3 scripts/test_semantic.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Galpium-macos
+          path: dist/Galpium.app

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "galpium": {
+      "command": "/bin/sh",
+      "args": [
+        "-c",
+        "#!/bin/sh\nset -eu\nif [ -n \"${GALPIUM_APP:-}\" ]; then\n  executable=\"$GALPIUM_APP/Contents/MacOS/galpium-mcp\"\nelif [ -x /Applications/Galpium.app/Contents/MacOS/galpium-mcp ]; then\n  executable=/Applications/Galpium.app/Contents/MacOS/galpium-mcp\nelif [ -x \"$HOME/Applications/Galpium.app/Contents/MacOS/galpium-mcp\" ]; then\n  executable=\"$HOME/Applications/Galpium.app/Contents/MacOS/galpium-mcp\"\nelse\n  printf 'Galpium.app을 Applications에 설치하거나 GALPIUM_APP으로 앱 경로를 지정하세요.\\n' >&2\n  exit 1\nfi\nif [ -n \"${GALPIUM_LIBRARY:-}\" ]; then\n  exec \"$executable\" --library \"$GALPIUM_LIBRARY\"\nfi\nexec \"$executable\"\n"
+      ]
+    }
+  }
+}

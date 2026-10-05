@@ -1,0 +1,20 @@
+{
+  "name": "galpium-local",
+  "interface": {
+    "displayName": "Galpium"
+  },
+  "plugins": [
+    {
+      "name": "galpium",
+      "source": {
+        "source": "local",
+        "path": "./plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
