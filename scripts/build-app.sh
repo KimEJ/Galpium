@@ -21,8 +21,8 @@ cp Resources/Info.plist "$app/Contents/Info.plist"
 cp -R "$bin/Galpium_GalpiumCore.bundle" "$app/Contents/Resources/"
 cp -R Resources/*.lproj "$app/Contents/Resources/"
 if [ -f Resources/AppIcon.icns ]; then cp Resources/AppIcon.icns "$app/Contents/Resources/"; fi
-cp README.md "$app/Contents/Resources/README.md"
-cp LICENSE NOTICE THIRD-PARTY-NOTICES.md "$app/Contents/Resources/"
+cp README*.md "$app/Contents/Resources/"
+cp LICENSE NOTICE THIRD-PARTY-NOTICES.md DESIGN.md "$app/Contents/Resources/"
 mkdir -p "$app/Contents/Resources/docs"
 cp docs/*.md "$app/Contents/Resources/docs/"
 if [ -n "${GALPIUM_SIGN_IDENTITY:-}" ]; then

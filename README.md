@@ -1,10 +1,12 @@
 # Galpium
 
+**English** · [한국어](README.ko.md) · [日本語](README.ja.md)
+
 A native macOS personal wiki that keeps your original materials, linked knowledge,
 and AI-assisted writing in one local library.
 
 [Download v0.0.1](https://github.com/KimEJ/Galpium/releases/tag/v0.0.1) ·
-[User guide](docs/USER-GUIDE.md) · [한국어](README.ko.md)
+[User guide](docs/USER-GUIDE.en.md)
 
 ## What it does
 
@@ -38,6 +40,10 @@ A Developer ID/notarized distribution requires publisher signing credentials.
 The default library is `~/Library/Application Support/Galpium/`. Choose a different
 library in the app's settings. Closing the window keeps the app available to MCP;
 reopen it from the Dock or menu bar. Quit with **⌘Q**.
+
+The interface supports Korean, English and Japanese. It follows the system
+language by default; choose another language in **Settings → App Settings… →
+Language**. Your documents and materials retain their original language.
 
 ## Connect ChatGPT desktop
 
