@@ -48,8 +48,12 @@ macOSで起動の承認を求められた場合は、**システム設定 → �
 GalpiumとChatGPTをApplicationsにインストールしてから、次の操作を行います。
 
 1. [Galpium-Codex-Plugin-0.0.1.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-Codex-Plugin-0.0.1.zip)をダウンロードして展開します。
-2. **Install Galpium Plugin.command**を実行します。
-3. ChatGPTを再起動し、新しいローカルWork/Codexチャットで **@Galpium** を選択します。
+2. 展開された **Galpium-Codex** フォルダを開きます。中にはインストーラの
+   **Install Galpium Plugin.command**、プラグインを含む **plugin** フォルダ、
+   **LICENSE** と **NOTICE** ファイルがあります。
+3. **Install Galpium Plugin.command**をダブルクリックします。ターミナルが開き、
+   プラグインがインストールされます。**Galpium installed.**と表示されるまで待ちます。
+4. ChatGPTを **⌘Q** で完全に終了してから再び起動し、新しいローカルチャットで **@Galpium** を選択します。
 
 インストーラはChatGPTに同梱されたランタイムを使います。別途CLIをインストールしたり、
 設定を手動で編集したりする必要はありません。このパッケージはローカルマーケットプレイスの

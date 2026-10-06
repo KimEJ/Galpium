@@ -181,12 +181,20 @@ command = "/Applications/Galpium.app/Contents/MacOS/galpium-mcp"
 加え、資料収集・検索・脚注引用・安全な更新のスキルを提供します。
 設定形式は [OpenAI公式MCPドキュメント](https://developers.openai.com/codex/mcp)に従います。
 
-ChatGPTデスクトップのローカルチャットにインストールする場合は、配布ZIPを **展開** し、
-**Install Galpium Plugin.command**を実行します。先にGalpium.appとChatGPT.appを
-Applicationsにインストールしてください。インストーラはChatGPTに同梱されたランタイムで
-ローカルマーケットプレイスを登録し、プラグインを有効にします。別途Codex CLIをインストール
-したり、`config.toml` を手動で編集したりする必要はありません。インストール後にChatGPTを
-再起動し、新しいローカルチャットで **@Galpium** を選択してください。
+ChatGPTデスクトップのローカルチャットにインストールする場合は、先にGalpium.appと
+ChatGPT.appをApplicationsにインストールしてください。
+
+1. 配布ZIPを展開します。
+2. 展開された **Galpium-Codex** フォルダを開きます。中にはインストーラの
+   **Install Galpium Plugin.command**、プラグインを含む **plugin** フォルダ、
+   **LICENSE** と **NOTICE** ファイルがあります。
+3. **Install Galpium Plugin.command**をダブルクリックします。ターミナルが開き、
+   プラグインがインストールされます。**Galpium installed.**と表示されるまで待ちます。
+4. ChatGPTを **⌘Q** で完全に終了してから再び起動し、新しいローカルチャットで **@Galpium** を選択します。
+
+インストーラはChatGPTに同梱されたランタイムでローカルマーケットプレイスを登録し、
+プラグインを有効にします。別途Codex CLIをインストールしたり、`config.toml` を
+手動で編集したりする必要はありません。
 
 **プラグインアーカイブのアップロード**は、サーバーにパッケージを登録する別の経路です。
 この配布ファイルは現在のMacでGalpiumを実行するローカルマーケットプレイス用です。

@@ -48,8 +48,12 @@ Dock 또는 메뉴 막대에서 다시 열 수 있으며, **⌘Q**로 종료합�
 Galpium과 ChatGPT를 Applications에 설치한 뒤 다음과 같이 진행합니다.
 
 1. [Galpium-Codex-Plugin-0.0.1.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-Codex-Plugin-0.0.1.zip)을 다운로드하고 압축을 해제합니다.
-2. **Install Galpium Plugin.command**를 실행합니다.
-3. ChatGPT를 재시작하고 새 로컬 Work/Codex 채팅에서 **@Galpium**을 선택합니다.
+2. 생성된 **Galpium-Codex** 폴더를 엽니다. 안에는 설치 파일
+   **Install Galpium Plugin.command**, 플러그인이 담긴 **plugin** 폴더,
+   **LICENSE**와 **NOTICE** 파일이 있습니다.
+3. 그중 **Install Galpium Plugin.command**를 더블클릭합니다. 터미널 창이 열리며
+   플러그인이 설치됩니다. **Galpium installed.** 메시지가 나올 때까지 기다리세요.
+4. ChatGPT를 **⌘Q**로 완전히 종료한 뒤 다시 실행하고, 새 로컬 채팅에서 **@Galpium**을 선택합니다.
 
 설치 파일은 ChatGPT에 포함된 런타임을 사용합니다. 별도의 CLI 설치나 수동 설정
 편집은 필요 없습니다. 이 패키지는 로컬 마켓플레이스 플러그인을 설치하므로

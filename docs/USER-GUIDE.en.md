@@ -201,12 +201,20 @@ Add these settings to Codex's `config.toml`. To use another library, specify
 MCP with a skill for collecting materials, searching, citing footnotes and
 updating safely. The format follows the [official OpenAI MCP documentation](https://developers.openai.com/codex/mcp).
 
-To install for local chats in ChatGPT desktop, **extract** the distributed ZIP
-and run **Install Galpium Plugin.command**. Install Galpium.app and ChatGPT.app
-in Applications first. The installer registers a local marketplace and enables
-the plugin using ChatGPT's bundled runtime. A separate Codex CLI installation
-or manual `config.toml` edit is not required. Restart ChatGPT after installation
-and select **@Galpium** in a new local chat.
+To install for local chats in ChatGPT desktop, first install Galpium.app and
+ChatGPT.app in Applications.
+
+1. Extract the distributed ZIP.
+2. Open the extracted **Galpium-Codex** folder. It contains the installer
+   **Install Galpium Plugin.command**, the **plugin** folder, and **LICENSE** and
+   **NOTICE** files.
+3. Double-click **Install Galpium Plugin.command**. A Terminal window opens and
+   installs the plugin. Wait for the **Galpium installed.** message.
+4. Quit ChatGPT with **⌘Q**, reopen it, and select **@Galpium** in a new local chat.
+
+The installer registers a local marketplace and enables the plugin using
+ChatGPT's bundled runtime. A separate Codex CLI installation or manual
+`config.toml` edit is not required.
 
 **Plugin archive upload** is a separate route for registering a package on a
 server. This distribution is for a local marketplace that runs Galpium on your

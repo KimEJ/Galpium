@@ -162,12 +162,20 @@ command = "/Applications/Galpium.app/Contents/MacOS/galpium-mcp"
 `args = ["--library", "/absolute/path/to/library"]`를 명시합니다. 플러그인은 같은 MCP와
 자료 수집·검색·각주 인용·안전한 갱신 스킬을 함께 제공합니다.
 설정 형식은 [OpenAI 공식 MCP 문서](https://developers.openai.com/codex/mcp)를 따릅니다.
-ChatGPT 데스크톱의 로컬 채팅에 설치할 때는 배포 ZIP을 **압축 해제**하고
-**Install Galpium Plugin.command**를 실행합니다. 먼저 Galpium.app과
-ChatGPT.app을 Applications에 설치하세요. 설치 파일은 ChatGPT에 포함된
-런타임으로 로컬 마켓플레이스를 등록하고 플러그인을 활성화합니다. 별도의
-Codex CLI 설치나 `config.toml` 수동 편집은 필요 없습니다. 설치 후 ChatGPT를
-재시작하고 새 로컬 채팅에서 **@Galpium**을 선택하세요.
+
+ChatGPT 데스크톱의 로컬 채팅에 설치하려면 먼저 Galpium.app과 ChatGPT.app을
+Applications에 설치하세요.
+
+1. 배포 ZIP을 압축 해제합니다.
+2. 생성된 **Galpium-Codex** 폴더를 엽니다. 안에는 설치 파일
+   **Install Galpium Plugin.command**, 플러그인이 담긴 **plugin** 폴더,
+   **LICENSE**와 **NOTICE** 파일이 있습니다.
+3. 그중 **Install Galpium Plugin.command**를 더블클릭합니다. 터미널 창이 열리며
+   플러그인이 설치됩니다. **Galpium installed.** 메시지가 나올 때까지 기다리세요.
+4. ChatGPT를 **⌘Q**로 완전히 종료한 뒤 다시 실행하고, 새 로컬 채팅에서 **@Galpium**을 선택합니다.
+
+설치 파일은 ChatGPT에 포함된 런타임으로 로컬 마켓플레이스를 등록하고 플러그인을
+활성화합니다. 별도의 Codex CLI 설치나 `config.toml` 수동 편집은 필요 없습니다.
 
 **플러그인 아카이브 업로드**는 서버에 패키지를 등록하는 별도의 경로입니다.
 이 배포 파일은 현재 Mac의 Galpium을 실행하는 로컬 마켓플레이스용입니다.

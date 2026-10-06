@@ -50,8 +50,12 @@ Language**. Your documents and materials retain their original language.
 Install Galpium and ChatGPT in Applications. Then:
 
 1. Download [Galpium-Codex-Plugin-0.0.1.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-Codex-Plugin-0.0.1.zip) and extract it.
-2. Run **Install Galpium Plugin.command**.
-3. Restart ChatGPT and start a new local Work/Codex chat with **@Galpium**.
+2. Open the extracted **Galpium-Codex** folder. It contains the installer
+   **Install Galpium Plugin.command**, the **plugin** folder, and **LICENSE** and
+   **NOTICE** files.
+3. Double-click **Install Galpium Plugin.command**. A Terminal window opens and
+   installs the plugin. Wait for the **Galpium installed.** message.
+4. Quit ChatGPT with **⌘Q**, reopen it, and select **@Galpium** in a new local chat.
 
 The installer uses ChatGPT's bundled runtime. A separate CLI installation or
 manual configuration edit is not required. This package installs a local
