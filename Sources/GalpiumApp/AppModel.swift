@@ -1006,17 +1006,17 @@ extension AppModel {
       return
     }
     let query = materialQuery
-    let status = status
-    let kind = materialKind
+    let searchStatus = status
+    let searchKind = materialKind
     materialSearchIsRunning = true
     materialSearchTask = Task { [weak self] in
       do {
         try await Task.sleep(for: .milliseconds(200))
         let result = try await Task.detached(priority: .userInitiated) {
-          try store.searchMaterials(query: query, status: status, kind: kind)
+          try store.searchMaterials(query: query, status: searchStatus, kind: searchKind)
         }.value
         guard let self, !Task.isCancelled, self.section == "materials", self.materialQuery == query,
-          self.status == status, self.materialKind == kind
+          self.status == searchStatus, self.materialKind == searchKind
         else { return }
         self.materials = result.items
         self.materialSearchMatches = result.matches
@@ -1024,7 +1024,7 @@ extension AppModel {
         self.materialSearchIsRunning = false
       } catch {
         guard let self, !Task.isCancelled, self.section == "materials", self.materialQuery == query,
-          self.status == status, self.materialKind == kind
+          self.status == searchStatus, self.materialKind == searchKind
         else { return }
         self.materialSearchState = "unavailable"
         self.materialSearchIsRunning = false
