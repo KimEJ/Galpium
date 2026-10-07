@@ -12,8 +12,9 @@ sh scripts/build-app.sh
 open dist/Galpium.app
 ```
 
-The app contains `Galpium`, `galpium-mcp`, `galpium-embedder`, EmbeddingGemma,
-llama.cpp and the complete license/notice files. Runtime use needs no model download.
+The app contains `Galpium`, `galpium-mcp`, `galpium-embedder`, EmbeddingGemma 2
+Q8_0, its Q8_0 image/audio projector, llama.cpp and the complete license/notice
+files. Runtime use needs no model download.
 
 ## Verification
 
@@ -46,7 +47,20 @@ Outputs in `dist/`:
 - `Galpium-Codex-Plugin-<version>.zip`
 - `SHA256SUMS`
 
-The first public version is **0.0.1**. The published binary is arm64/Apple silicon.
+The first public version is **0.0.1**. Its public assets and tag remain immutable.
+The current release is **0.0.2**, build **2**. Packaging reads the version from
+`Resources/Info.plist` and produces new `0.0.2` asset names. The app and plugin
+manifest versions must agree. Public download links point to the fixed
+`v0.0.2` tag, with `Galpium-0.0.2-arm64.dmg`, `Galpium-Codex-Plugin-0.0.2.zip`
+and `SHA256SUMS` uploaded as release assets. If the local checksum file is kept
+under a versioned filename, upload it using the release asset name `SHA256SUMS`.
+
+Version 0.0.2 adds EmbeddingGemma 2 text/image/audio retrieval, visual indexing of
+all PDF pages, original page/time provenance in material results and automatic
+rebuilding of the derived model index. It does not generate OCR text or
+transcripts, and does not change originals, exact citations or revision history.
+
+The published binary is arm64/Apple silicon.
 Build Intel releases on an Intel host or cross-build and independently validate
 before publishing. Do not label an arm64 file universal.
 
@@ -78,7 +92,7 @@ notarization; accepted submission, stapling and Gatekeeper assessment are requir
 
 1. Commit and validate the final source. Exclude libraries, developer captures,
    benchmark results and local paths from the public tree.
-2. Create a version-specific tag such as `v0.0.1` pointing to that commit.
+2. Create a version-specific tag such as `v0.0.2` pointing to that commit.
 3. Enable GitHub immutable releases for the repository.
 4. Create a draft release and upload the DMG, plugin ZIP and `SHA256SUMS`.
 5. Verify uploaded names, sizes and SHA-256 digests, then publish the draft.
@@ -86,4 +100,4 @@ notarization; accepted submission, stapling and Gatekeeper assessment are requir
 
 Published assets and tags are never replaced. A correction receives a new version.
 The tag locks the source revision; `SHA256SUMS` locks artifact bytes. The separate
-Apache/Gemma/runtime license scopes are documented in [third-party notices](../THIRD-PARTY-NOTICES.md).
+Application, model and runtime license scopes are documented in [third-party notices](../THIRD-PARTY-NOTICES.md).

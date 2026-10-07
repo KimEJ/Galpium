@@ -16,6 +16,8 @@ struct EmbeddingResponse: Codable, Sendable {
   var vector: [Float]? = nil
   var error: String? = nil
   var workerPID: Int32? = nil
+  var runtimeMode: String? = nil
+  var supervisorPID: Int32? = nil
 }
 
 struct EmbeddingSocket {
@@ -32,8 +34,9 @@ struct EmbeddingSocket {
       (info.st_mode & S_IFMT) == S_IFDIR, info.st_mode & 0o077 == 0
     else { throw WikiError.storage("unsafe embedding socket directory") }
     let id = String(
-      WikiStore.digest(Data(canonicalLibraryPath(root).utf8)).prefix(
-        24))
+      WikiStore.digest(Data((canonicalLibraryPath(root) + "\n" + EmbeddingAssets.identity).utf8))
+        .prefix(
+          24))
     socketPath = directory.appendingPathComponent(id + ".sock").path
   }
   func address() throws -> sockaddr_un {
@@ -145,42 +148,79 @@ struct EmbeddingClient {
   }
 }
 
+enum EmbeddingRuntimeMode: String {
+  case text
+  case multimodal
+}
+
 final class EmbeddingRuntime {
   private var supervisor: Process?
+  private var configuredMode: EmbeddingRuntimeMode?
+  private var assetsValidated = false
   private var port: UInt16 = 0
   private var key = ""
   private let socket: EmbeddingSocket
   private let session: URLSession
+  var mode: EmbeddingRuntimeMode? {
+    supervisor?.isRunning == true ? configuredMode : nil
+  }
+  var supervisorPID: Int32? {
+    supervisor?.isRunning == true ? supervisor?.processIdentifier : nil
+  }
   init(socket: EmbeddingSocket) {
     self.socket = socket
     let config = URLSessionConfiguration.ephemeral
     config.connectionProxyDictionary = [:]
-    config.timeoutIntervalForRequest = 20
-    config.timeoutIntervalForResource = 25
+    config.timeoutIntervalForRequest = 90
+    config.timeoutIntervalForResource = 100
     session = URLSession(configuration: config)
   }
   deinit { stop() }
   func stop() {
     if let process = supervisor, process.isRunning {
       process.terminate()
-      let end = Date().addingTimeInterval(3)
+      let end = Date().addingTimeInterval(4)
       while process.isRunning && Date() < end { Thread.sleep(forTimeInterval: 0.02) }
-      if process.isRunning { _ = kill(process.processIdentifier, SIGKILL) }
+      if process.isRunning {
+        _ = kill(process.processIdentifier, SIGKILL)
+        process.waitUntilExit()
+      }
     }
     supervisor = nil
+    configuredMode = nil
+    port = 0
+    key = ""
     try? FileManager.default.removeItem(atPath: socket.socketPath + ".key")
   }
-  private func ensureStarted() throws {
-    if let supervisor, supervisor.isRunning { return }
+  /// Encoder weights are released only once the indexing queue has drained.
+  /// Queries arriving during indexing reuse its full model and identical text vector space.
+  func releaseMedia() throws {
+    guard mode == .multimodal else { return }
     stop()
-    let handle = try FileHandle(forReadingFrom: EmbeddingAssets.model)
+    try ensureStarted(mode: .text)
+  }
+  static func validateAsset(_ url: URL, expectedHash: String) throws {
+    let handle = try FileHandle(forReadingFrom: url)
     defer { try? handle.close() }
     var hash = SHA256()
     while let bytes = try handle.read(upToCount: 1024 * 1024), !bytes.isEmpty {
       hash.update(data: bytes)
     }
-    guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == EmbeddingAssets.modelHash
-    else { throw WikiError.storage("embedding model checksum") }
+    guard hash.finalize().map({ String(format: "%02x", $0) }).joined() == expectedHash
+    else { throw WikiError.storage("embedding asset checksum") }
+  }
+  private func ensureStarted(mode requestedMode: EmbeddingRuntimeMode = .text) throws {
+    if let activeMode = mode,
+      activeMode == requestedMode || activeMode == .multimodal && requestedMode == .text
+    {
+      return
+    }
+    stop()
+    if !assetsValidated {
+      try Self.validateAsset(EmbeddingAssets.model, expectedHash: EmbeddingAssets.modelHash)
+      try Self.validateAsset(EmbeddingAssets.projector, expectedHash: EmbeddingAssets.projectorHash)
+      assetsValidated = true
+    }
     let fd = Darwin.socket(AF_INET, SOCK_STREAM, 0)
     guard fd >= 0 else { throw WikiError.storage("embedding port") }
     var address = sockaddr_in()
@@ -201,29 +241,35 @@ final class EmbeddingRuntime {
     port = UInt16(bigEndian: address.sin_port)
     key = UUID().uuidString + UUID().uuidString
     let keyFile = socket.socketPath + ".key"
-    FileManager.default.createFile(
-      atPath: keyFile, contents: Data(key.utf8), attributes: [.posixPermissions: 0o600])
+    guard
+      FileManager.default.createFile(
+        atPath: keyFile, contents: Data(key.utf8), attributes: [.posixPermissions: 0o600])
+    else { throw WikiError.storage("embedding runtime key") }
     let process = Process()
     process.executableURL = EmbeddingAssets.worker
     process.arguments = [
       "--supervise", String(getpid()), "--port", String(port), "--key-file", keyFile,
+      "--mode", requestedMode.rawValue,
     ]
     process.standardInput = FileHandle.nullDevice
     process.standardOutput = FileHandle.nullDevice
     process.standardError = FileHandle.nullDevice
     try process.run()
     supervisor = process
-    let deadline = Date().addingTimeInterval(20)
+    configuredMode = requestedMode
+    let deadline = Date().addingTimeInterval(60)
     while Date() < deadline, process.isRunning {
-      if (try? http("/health", body: nil)) != nil { return }
+      if (try? http("/health", body: nil, timeout: 1)) != nil { return }
       Thread.sleep(forTimeInterval: 0.05)
     }
     stop()
     throw WikiError.storage("embedding runtime startup failed")
   }
-  private func http(_ endpoint: String, body: [String: Any]?) throws -> [String: Any] {
+  private func http(_ endpoint: String, body: [String: Any]?, timeout: TimeInterval = 90) throws
+    -> [String: Any]
+  {
     let url = URL(string: "http://127.0.0.1:\(port)\(endpoint)")!
-    var request = URLRequest(url: url)
+    var request = URLRequest(url: url, timeoutInterval: timeout)
     request.setValue("Bearer " + key, forHTTPHeaderField: "Authorization")
     if let body {
       request.httpMethod = "POST"
@@ -237,7 +283,7 @@ final class EmbeddingRuntime {
       completed.signal()
     }
     task.resume()
-    guard completed.wait(timeout: .now() + 25) == .success else {
+    guard completed.wait(timeout: .now() + timeout + 1) == .success else {
       task.cancel()
       throw WikiError.storage("embedding request timed out")
     }
@@ -251,21 +297,52 @@ final class EmbeddingRuntime {
     try ensureStarted()
     guard
       let tokens = try http(
-        "/tokenize", body: ["content": text, "add_special": true, "parse_special": false])["tokens"]
-        as? [Int]
+        "/tokenize", body: ["content": text, "add_special": true, "parse_special": false])[
+          "tokens"] as? [Int]
     else { throw WikiError.storage("embedding tokenizer") }
     return tokens.count
   }
-  func embed(_ text: String) throws -> [Float] {
-    guard try tokenCount(text) <= 512 else { throw WikiError.invalid("embedding context limit") }
-    let response = try http(
-      "/v1/embeddings", body: ["input": text, "model": "embeddinggemma", "cache_prompt": false])
-    guard let rows = response["data"] as? [[String: Any]],
+  static func vector(from response: [String: Any]) throws -> [Float] {
+    guard let rows = response["data"] as? [[String: Any]], rows.count == 1,
       let numbers = rows.first?["embedding"] as? [NSNumber], numbers.count == 768
     else { throw WikiError.storage("embedding shape") }
     let vector = numbers.map(\.floatValue)
-    guard vector.allSatisfy(\.isFinite) else { throw WikiError.storage("embedding values") }
-    return vector
+    let norm = sqrt(vector.reduce(Float(0)) { $0 + $1 * $1 })
+    guard vector.allSatisfy(\.isFinite), norm.isFinite, norm > 0.01 else {
+      throw WikiError.storage("embedding values")
+    }
+    return vector.map { $0 / norm }
+  }
+  func embed(_ text: String) throws -> [Float] {
+    guard try tokenCount(text) <= 512 else { throw WikiError.invalid("embedding context limit") }
+    return try Self.vector(
+      from: http(
+        "/v1/embeddings", body: ["input": text, "encoding_format": "float"]))
+  }
+  static func mediaBody(data: Data, kind: String) throws -> [String: Any] {
+    guard !data.isEmpty, data.count <= 16 * 1024 * 1024 else {
+      throw WikiError.invalid("embedding media size")
+    }
+    let part: [String: Any]
+    switch kind {
+    case "image":
+      part = [
+        "type": "image_url",
+        "image_url": ["url": "data:image/jpeg;base64," + data.base64EncodedString()],
+      ]
+    case "audio":
+      part = [
+        "type": "input_audio",
+        "input_audio": ["data": data.base64EncodedString(), "format": "wav"],
+      ]
+    default: throw WikiError.invalid("embedding media kind")
+    }
+    return ["input": [["content": [part]]], "encoding_format": "float"]
+  }
+  func embedMedia(data: Data, kind: String) throws -> [Float] {
+    let body = try Self.mediaBody(data: data, kind: kind)
+    try ensureStarted(mode: .multimodal)
+    return try Self.vector(from: http("/v1/embeddings", body: body))
   }
 }
 private final class HTTPResult: @unchecked Sendable {
@@ -273,7 +350,32 @@ private final class HTTPResult: @unchecked Sendable {
 }
 
 public enum EmbeddingWorker {
-  public static func supervise(owner: Int32, port: String, keyFile: String) throws {
+  static func runtimeArguments(mode: EmbeddingRuntimeMode, port: String, keyFile: String)
+    -> [String]
+  {
+    let context = mode == .multimodal ? "8192" : "2048"
+    var arguments = [
+      "-m", EmbeddingAssets.model.path, "--embedding", "--pooling", "mean", "--ctx-size", context,
+      "--batch-size", context, "--ubatch-size", context, "--parallel", "1", "--threads", "2",
+      "--threads-batch", "2", "--threads-http", "1", "--gpu-layers", "99", "--cache-ram", "0",
+      "--cache-type-k", "f32", "--cache-type-v", "f32", "--flash-attn", "off",
+      "--no-warmup", "--host", "127.0.0.1", "--port", port, "--api-key-file", keyFile, "--no-ui",
+      "--no-agent", "--no-ui-mcp-proxy", "--cors-origins", "null", "--no-cors-credentials",
+      "--sleep-idle-seconds", "60",
+    ]
+    if mode == .multimodal {
+      arguments += ["--mmproj", EmbeddingAssets.projector.path, "--image-max-tokens", "1120"]
+    } else {
+      arguments += ["--no-mmproj"]
+    }
+    return arguments
+  }
+  public static func supervise(owner: Int32, port: String, keyFile: String, mode: String = "text")
+    throws
+  {
+    guard let mode = EmbeddingRuntimeMode(rawValue: mode) else {
+      throw WikiError.invalid("embedding runtime mode")
+    }
     let stopped = WorkerStop()
     signal(SIGTERM, SIG_IGN)
     signal(SIGINT, SIG_IGN)
@@ -287,16 +389,9 @@ public enum EmbeddingWorker {
     let process = Process()
     process.executableURL = EmbeddingAssets.runtime
     process.currentDirectoryURL = EmbeddingAssets.runtime.deletingLastPathComponent()
-    process.arguments = [
-      "-m", EmbeddingAssets.model.path, "--embedding", "--pooling", "mean", "--ctx-size", "512",
-      "--batch-size", "512", "--ubatch-size", "512", "--parallel", "1", "--threads", "2",
-      "--threads-batch", "2", "--threads-http", "1", "--gpu-layers", "99", "--cache-ram", "0",
-      "--no-warmup", "--host", "127.0.0.1", "--port", port, "--api-key-file", keyFile, "--no-ui",
-      "--no-agent", "--no-ui-mcp-proxy", "--cors-origins", "null", "--no-cors-credentials",
-      "--sleep-idle-seconds", "60",
-    ]
+    process.arguments = runtimeArguments(mode: mode, port: port, keyFile: keyFile)
     process.environment = ProcessInfo.processInfo.environment.filter {
-      !$0.key.hasPrefix("LLAMA_") && !$0.key.hasPrefix("GGML_")
+      !$0.key.hasPrefix("LLAMA_") && !$0.key.hasPrefix("GGML_") && !$0.key.hasPrefix("MTMD_")
     }
     process.standardInput = FileHandle.nullDevice
     process.standardOutput = FileHandle.nullDevice
@@ -309,7 +404,10 @@ public enum EmbeddingWorker {
       process.terminate()
       let deadline = Date().addingTimeInterval(2)
       while process.isRunning && Date() < deadline { Thread.sleep(forTimeInterval: 0.02) }
-      if process.isRunning { _ = kill(process.processIdentifier, SIGKILL) }
+      if process.isRunning {
+        _ = kill(process.processIdentifier, SIGKILL)
+        process.waitUntilExit()
+      }
     }
   }
   public static func run(root: URL) throws {
@@ -351,25 +449,36 @@ public enum EmbeddingWorker {
       for source in signals { source.cancel() }
       runtime.stop()
     }
-    let failureFile = root.appendingPathComponent("search-cache/runtime-failure.json")
+    let failureFile = root.appendingPathComponent("search-cache/" + EmbeddingAssets.failureFilename)
     let idle =
       Double(ProcessInfo.processInfo.environment["GALPIUM_EMBEDDING_IDLE_SECONDS"] ?? "60") ?? 60
     var lastWork = Date()
     var pending = [String]()
     var current: WikiPage?
+    var currentKey: String?
     var passages = [SemanticPassage]()
     var completed = [SemanticPassage]()
+    func response(vector: [Float]? = nil) -> EmbeddingResponse {
+      EmbeddingResponse(
+        vector: vector, workerPID: getpid(), runtimeMode: runtime.mode?.rawValue,
+        supervisorPID: runtime.supervisorPID)
+    }
     func queueIndex() throws {
-      let keys = try store.semanticRevisions().keys.sorted()
+      let revisions = try store.semanticRevisions()
+      let keys = revisions.keys.sorted()
       pending = []
-      var valid = Set<String>()
       for key in keys {
-        if let page = try? store.semanticDocument(key) {
-          valid.insert(key)
-          if try !cache.missing([page]).isEmpty { pending.append(key) }
+        guard let revision = revisions[key],
+          try !cache.recentlyFailed(key, revision: revision)
+        else { continue }
+        let page: WikiPage
+        do { page = try store.semanticDocument(key) } catch {
+          try cache.recordFailure(WikiPage(slug: key, title: "", body: "", revision: revision))
+          continue
         }
+        if try !cache.missing([page]).isEmpty { pending.append(key) }
       }
-      try cache.prune(valid)
+      try cache.prune(Set(keys))
     }
     while !stopped.value {
       var pollFD = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
@@ -387,17 +496,17 @@ public enum EmbeddingWorker {
               let vector = try runtime.embed("task: search result | query: " + query)
               try? FileManager.default.removeItem(at: failureFile)
               try EmbeddingSocket.send(
-                EmbeddingResponse(vector: vector, workerPID: getpid()), fd: connection)
+                response(vector: vector), fd: connection)
               lastWork = Date()
               if !busy { try queueIndex() }
             case "index":
               if !busy { try queueIndex() }
-              try EmbeddingSocket.send(EmbeddingResponse(workerPID: getpid()), fd: connection)
+              try EmbeddingSocket.send(response(), fd: connection)
             case "status":
-              try EmbeddingSocket.send(EmbeddingResponse(workerPID: getpid()), fd: connection)
+              try EmbeddingSocket.send(response(), fd: connection)
             case "shutdown":
               stopped.stop()
-              try EmbeddingSocket.send(EmbeddingResponse(workerPID: getpid()), fd: connection)
+              try EmbeddingSocket.send(response(), fd: connection)
             default: throw WikiError.invalid("embedding operation")
             }
           } catch {
@@ -410,9 +519,26 @@ public enum EmbeddingWorker {
       }
       do {
         if current == nil, !pending.isEmpty {
-          current = try? store.semanticDocument(pending.removeFirst())
+          let key = pending.removeFirst()
+          currentKey = key
+          current = try store.semanticDocument(key)
           guard let current else { continue }
-          passages = try split(current, runtime: runtime)
+          let originalPages =
+            current.slug.hasPrefix("material:")
+            ? try store.materialExtraction(String(current.slug.dropFirst(9)))?.pages : nil
+          passages = try buildPassages(current, originalPages: originalPages) {
+            try runtime.tokenCount($0)
+          }
+          for media in try store.semanticMediaItems(current.slug) {
+            let id = WikiStore.digest(Data((EmbeddingAssets.identity + "\n" + media.identity).utf8))
+            passages.append(
+              SemanticPassage(
+                id: id, slug: current.slug, digest: SemanticCache.digest(current),
+                heading: media.heading, excerpt: media.excerpt, input: "", media: media))
+          }
+          guard !passages.isEmpty else {
+            throw WikiError.invalid("material has no searchable content")
+          }
           completed = []
         }
         if let page = current {
@@ -420,13 +546,21 @@ public enum EmbeddingWorker {
             SemanticCache.digest(latest) == SemanticCache.digest(page)
           else {
             current = nil
+            currentKey = nil
             try queueIndex()
             continue
           }
           if !passages.isEmpty {
             let passage = passages.removeFirst()
             if try cache.vector(passage.id) == nil {
-              try cache.saveVector(passage.id, runtime.embed(passage.input))
+              let vector: [Float]
+              if let media = passage.media {
+                vector = try runtime.embedMedia(
+                  data: store.semanticMediaData(media), kind: media.kind)
+              } else {
+                vector = try runtime.embed(passage.input)
+              }
+              try cache.saveVector(passage.id, vector)
             }
             completed.append(passage)
             lastWork = Date()
@@ -434,30 +568,48 @@ public enum EmbeddingWorker {
           } else {
             try cache.replace(page, passages: completed)
             current = nil
+            currentKey = nil
             if pending.isEmpty { try queueIndex() }
           }
         }
       } catch {
+        if let page = current {
+          try? cache.recordFailure(page)
+        } else if let currentKey, let revision = try? store.semanticRevisions()[currentKey] {
+          try? cache.recordFailure(
+            WikiPage(slug: currentKey, title: "", body: "", revision: revision))
+        }
         current = nil
-        pending = []
+        currentKey = nil
+        passages = []
+        completed = []
         runtime.stop()
-        try? JSONEncoder().encode(Date().timeIntervalSince1970).write(
-          to: failureFile, options: .atomic)
-        try? FileManager.default.setAttributes(
-          [.posixPermissions: 0o600], ofItemAtPath: failureFile.path)
+        // A failed original cools down independently; other documents keep indexing.
       }
-      if current == nil && pending.isEmpty && Date().timeIntervalSince(lastWork) >= max(1, idle) {
-        break
+      if current == nil && pending.isEmpty {
+        do { try runtime.releaseMedia() } catch { runtime.stop() }
+        if Date().timeIntervalSince(lastWork) >= max(1, idle) { break }
       }
     }
   }
-  private static func split(_ page: WikiPage, runtime: EmbeddingRuntime) throws -> [SemanticPassage]
-  {
+  static func buildPassages(
+    _ page: WikiPage, originalPages: [MaterialTextPage]? = nil,
+    tokenCount: (String) throws -> Int
+  ) throws -> [SemanticPassage] {
+    if page.slug.hasPrefix("material:"), originalPages == nil,
+      page.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    {
+      return []
+    }
     var result = [SemanticPassage]()
     var heading = ""
+    var pageNumber: Int?
     var title = String(page.title.prefix(80)).replacingOccurrences(of: "\n", with: " ")
     func prefix() throws -> String {
-      while try runtime.tokenCount("title: \(title) | text: " + heading) > 128 {
+      while try tokenCount("title: \(title) | text: " + heading) > 128 {
+        guard !title.isEmpty || !heading.isEmpty else {
+          throw WikiError.invalid("embedding title context")
+        }
         if heading.count > title.count {
           heading = String(heading.prefix(heading.count / 2))
         } else {
@@ -469,7 +621,7 @@ public enum EmbeddingWorker {
     func append(_ text: String) throws {
       guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
       let input = try prefix() + text
-      if try runtime.tokenCount(input) > 384 {
+      if try tokenCount(input) > 384 {
         guard text.count > 1 else { throw WikiError.invalid("passage context") }
         let middle = text.index(text.startIndex, offsetBy: text.count / 2)
         try append(String(text[..<middle]))
@@ -480,16 +632,10 @@ public enum EmbeddingWorker {
       result.append(
         SemanticPassage(
           id: id, slug: page.slug, digest: SemanticCache.digest(page), heading: heading,
-          excerpt: String(text.prefix(480)), input: input))
+          excerpt: String(text.prefix(480)), input: input,
+          pageNumber: pageNumber))
     }
-    for block in Markdown.blocks(page.body) {
-      if block.kind == "heading" {
-        heading = String(block.text.prefix(80))
-        continue
-      }
-      let text =
-        block.kind == "table"
-        ? block.rows.map { $0.joined(separator: " | ") }.joined(separator: "\n") : block.text
+    func appendBounded(_ text: String) throws {
       // Bound tokenizer request sizes even for a single enormous paragraph.
       var remaining = text[...]
       while !remaining.isEmpty {
@@ -498,7 +644,28 @@ public enum EmbeddingWorker {
         remaining = remaining[end...]
       }
     }
-    if result.isEmpty { try append(page.title) }
+    if let originalPages {
+      // Original text is data. Its own headings can never alter its structural PDF page.
+      for original in originalPages {
+        pageNumber = original.number
+        heading = "Page \(original.number)"
+        for paragraph in original.text.components(separatedBy: "\n\n") {
+          try appendBounded(paragraph)
+        }
+      }
+    } else {
+      for block in Markdown.blocks(page.body) {
+        if block.kind == "heading" {
+          heading = String(block.text.prefix(80))
+          continue
+        }
+        let text =
+          ["table", "list", "ordered"].contains(block.kind)
+          ? block.rows.map { $0.joined(separator: " | ") }.joined(separator: "\n") : block.text
+        try appendBounded(text)
+      }
+    }
+    if result.isEmpty && !page.slug.hasPrefix("material:") { try append(page.title) }
     var seen = Set<String>()
     return result.filter { seen.insert($0.id).inserted }
   }

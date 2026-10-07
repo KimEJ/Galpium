@@ -31,12 +31,22 @@ URL field; arbitrary app commands are not allowed.
 
 ## Retrieval
 
-Keyword retrieval and bundled EmbeddingGemma paragraph vectors are combined.
+Keyword retrieval and bundled EmbeddingGemma 2 vectors are combined. Text
+paragraphs, original images, PDF page renderings and audio segments use the same
+768-dimensional space. PDFKit and ImageIO prepare visual inputs; AVFoundation
+converts audio segments locally. Video indexing, OCR and transcription are not included.
+Material search unions the top 20 candidates from each modality, retains each
+material's highest-cosine match and sorts the union by shared-space cosine. Its
+global top 20 semantic candidates are combined with keyword results using
+reciprocal rank fusion.
 One private worker per library shares model memory between app and MCP clients,
 serves foreground queries between indexing work, and exits after an idle period.
 Its runtime listens on loopback with a generated key; clients use a private Unix
 socket. The derived index is regenerable and never becomes the authoritative
-source for documents, originals or history. See [semantic search](SEMANTIC-SEARCH.md).
+source for documents, originals or history. Model or projector changes create a
+new derived index automatically. Media results retain the original page or time
+interval, while exact quotations still require preserved readable text.
+See [semantic search](SEMANTIC-SEARCH.md).
 
 ## Components
 

@@ -1,3 +1,4 @@
+import AVKit
 import AppKit
 import GalpiumCore
 import ImageIO
@@ -40,25 +41,48 @@ struct MaterialsView: View {
               Text(localized("텍스트")).tag("text")
               Text("PDF").tag("pdf")
               Text(localized("이미지")).tag("image")
+              Text(localized("오디오")).tag("audio")
               Text(localized("기타 파일")).tag("file")
             }.pickerStyle(.segmented).onChange(of: model.materialKind) { _, _ in
               model.filtersChanged()
             }
-            Text(localized("자료 %ld개", model.materials.count)).font(.caption).foregroundStyle(
-              .secondary)
+            HStack(spacing: 8) {
+              Text(localized("자료 %ld개", model.materials.count))
+              if model.materialSearchIsRunning {
+                ProgressView().controlSize(.mini).help(localized("검색 중"))
+              } else if model.materialSearchState == "warming" {
+                Image(systemName: "clock").help(
+                  localized("의미 검색 준비 중 · 키워드 결과를 먼저 표시합니다"))
+              } else if model.materialSearchState == "partial" {
+                Image(systemName: "exclamationmark.circle").help(
+                  localized("일부 자료의 의미 검색을 준비하지 못했습니다"))
+              } else if model.materialSearchState == "unavailable" {
+                Image(systemName: "exclamationmark.circle").help(
+                  localized("의미 검색을 사용할 수 없어 키워드로 검색했습니다"))
+              }
+            }.font(.caption).foregroundStyle(.secondary)
             if model.materials.isEmpty {
               Text(localized("표시할 자료가 없습니다.")).foregroundStyle(.secondary)
             }
             LazyVStack(spacing: 4) {
               ForEach(model.materials) { item in
                 HStack {
-                  WikiRowButton(selected: false, action: { model.openMaterial(item.id) }) {
+                  WikiRowButton(selected: false, action: { model.openMaterialSearchResult(item) }) {
                     HStack(spacing: 14) {
                       Image(
                         systemName: item.kind == "image"
-                          ? "photo" : item.kind == "pdf" ? "doc.richtext" : "doc.text"
+                          ? "photo"
+                          : item.kind == "pdf"
+                            ? "doc.richtext"
+                            : item.kind == "audio" ? "waveform" : "doc.text"
                       ).foregroundStyle(.secondary)
-                      Text(item.title).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                      VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title).lineLimit(2)
+                        if let match = model.materialSearchMatch(for: item) {
+                          MaterialSearchMatchView(match: match)
+                            .accessibilityIdentifier("material-match-" + item.id)
+                        }
+                      }.frame(maxWidth: .infinity, alignment: .leading)
                       if let id = item.fileID, let file = try? model.store?.attachment(id) {
                         Text(
                           ByteCountFormatter.string(
@@ -138,6 +162,8 @@ struct MaterialsView: View {
         MaterialPDFView(url: file, page: model.materialPage).frame(minHeight: 220)
       } else if let file = try? model.store?.materialFileURL(item), item.kind == "image" {
         MaterialImageView(url: file).frame(maxHeight: 380)
+      } else if let file = try? model.store?.materialFileURL(item), item.kind == "audio" {
+        MaterialAudioView(url: file, startSeconds: model.materialStartSeconds).frame(height: 80)
       }
       if model.materialTextLoading { ProgressView().controlSize(.small) }
       if let error = model.materialTextError {
@@ -210,6 +236,76 @@ struct MaterialsView: View {
         }
       }.frame(maxHeight: 120)
     }.padding(24)
+  }
+}
+
+struct MaterialSearchMatchView: View {
+  let match: SemanticMatch
+  private var isVisual: Bool { match.modality == "image" || match.method == "visual" }
+  private var isAudio: Bool { match.modality == "audio" || match.method == "audio" }
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      if !isVisual && !isAudio && !match.excerpt.isEmpty {
+        Text(match.excerpt).lineLimit(2)
+      }
+      HStack(spacing: 8) {
+        if isVisual { Label(localized("이미지 일치"), systemImage: "photo") }
+        if isAudio {
+          Label(
+            Self.timeRange(start: match.startSeconds, end: match.endSeconds),
+            systemImage: "waveform"
+          )
+          .help(localized("오디오 일치"))
+        }
+        if let page = match.page, page > 0 { Text(localized("%ld쪽", page)) }
+      }
+    }.font(.caption).foregroundStyle(.secondary)
+  }
+  nonisolated static func timeRange(start: Double?, end: Double?) -> String {
+    let first = timecode(start ?? 0)
+    guard let start, let end, start.isFinite, end.isFinite, end > start else { return first }
+    return first + "–" + timecode(end)
+  }
+  nonisolated private static func timecode(_ seconds: Double) -> String {
+    let total = seconds.isFinite ? Int(min(max(0, seconds), Double(Int32.max))) : 0
+    if total >= 3600 {
+      return String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
+    }
+    return String(format: "%d:%02d", total / 60, total % 60)
+  }
+}
+
+struct MaterialAudioView: NSViewRepresentable {
+  let url: URL
+  let startSeconds: Double
+  final class Coordinator {
+    var url: URL?
+    var startSeconds: Double?
+  }
+  func makeCoordinator() -> Coordinator { Coordinator() }
+  func makeNSView(context: Context) -> AVPlayerView {
+    let view = AVPlayerView()
+    view.controlsStyle = .inline
+    view.showsFullScreenToggleButton = false
+    return view
+  }
+  func updateNSView(_ view: AVPlayerView, context: Context) {
+    if context.coordinator.url != url {
+      view.player?.pause()
+      view.player = AVPlayer(url: url)
+      context.coordinator.url = url
+      context.coordinator.startSeconds = nil
+    }
+    if context.coordinator.startSeconds != startSeconds {
+      view.player?.seek(
+        to: CMTime(seconds: startSeconds, preferredTimescale: 600),
+        toleranceBefore: .zero, toleranceAfter: .zero)
+      context.coordinator.startSeconds = startSeconds
+    }
+  }
+  static func dismantleNSView(_ view: AVPlayerView, coordinator: Coordinator) {
+    view.player?.pause()
+    view.player = nil
   }
 }
 

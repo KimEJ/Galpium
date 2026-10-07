@@ -7,6 +7,8 @@ public struct SemanticStatus: Codable, Sendable {
   public var totalPages: Int
   public var indexedMaterials: Int = 0
   public var totalMaterials: Int = 0
+  public var failedMaterials: Int = 0
+  public var failedPages: Int = 0
   public var pending: Bool { indexedPages < totalPages || indexedMaterials < totalMaterials }
 }
 public struct HybridResult: Sendable {
@@ -21,6 +23,10 @@ public struct SemanticMatch: Codable, Sendable {
   public var similarity: Float
   public var method: String
   public var revision: Int
+  public var page: Int? = nil
+  public var modality: String? = nil
+  public var startSeconds: Double? = nil
+  public var endSeconds: Double? = nil
 }
 
 struct SemanticPassage: Codable, Sendable {
@@ -30,6 +36,8 @@ struct SemanticPassage: Codable, Sendable {
   var heading: String
   var excerpt: String
   var input: String
+  var media: SemanticMediaItem? = nil
+  var pageNumber: Int? = nil
 }
 
 /// Search cache is derived data. A failed/corrupt vector is ignored, never treated as a page.
@@ -39,7 +47,7 @@ final class SemanticCache: @unchecked Sendable {
     let dir = root.appendingPathComponent("search-cache")
     try FileManager.default.createDirectory(
       at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-    let file = dir.appendingPathComponent("embedding.sqlite3")
+    let file = dir.appendingPathComponent(EmbeddingAssets.cacheFilename)
     do { db = try SQLite(url: file, derived: true) } catch {
       let message = error.localizedDescription
       guard
@@ -59,13 +67,17 @@ final class SemanticCache: @unchecked Sendable {
       CREATE TABLE IF NOT EXISTS passages (id TEXT NOT NULL, slug TEXT NOT NULL, digest TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY(slug,id));
       CREATE TABLE IF NOT EXISTS indexed (slug TEXT PRIMARY KEY, digest TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0);
       CREATE INDEX IF NOT EXISTS passage_slug ON passages(slug);
+      CREATE TABLE IF NOT EXISTS failures (slug TEXT PRIMARY KEY, revision INTEGER NOT NULL, failed_at REAL NOT NULL);
       """)
     try db.transaction {
       if !((try db.query("PRAGMA table_info(indexed)")).contains { $0[1] == "revision" }) {
         try db.execute("ALTER TABLE indexed ADD COLUMN revision INTEGER NOT NULL DEFAULT 0")
       }
     }
-    for name in ["embedding.sqlite3", "embedding.sqlite3-wal", "embedding.sqlite3-shm"] {
+    for name in [
+      EmbeddingAssets.cacheFilename, EmbeddingAssets.cacheFilename + "-wal",
+      EmbeddingAssets.cacheFilename + "-shm",
+    ] {
       let file = dir.appendingPathComponent(name)
       if FileManager.default.fileExists(atPath: file.path) {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
@@ -114,6 +126,7 @@ final class SemanticCache: @unchecked Sendable {
       }
       try db.execute(
         "INSERT OR REPLACE INTO indexed VALUES (?,?,?)", [page.slug, digest, String(page.revision)])
+      try db.execute("DELETE FROM failures WHERE slug=?", [page.slug])
     }
   }
   func missing(_ pages: [WikiPage]) throws -> [WikiPage] {
@@ -136,9 +149,33 @@ final class SemanticCache: @unchecked Sendable {
     for row in try db.query("SELECT slug FROM indexed") where !slugs.contains(row[0]) {
       try db.transaction {
         try db.execute("DELETE FROM passages WHERE slug=?", [row[0]])
+        try db.execute("DELETE FROM indexed WHERE slug=?", [row[0]])
       }
     }
     try db.execute("DELETE FROM vectors WHERE id NOT IN (SELECT id FROM passages)")
+    for row in try db.query("SELECT slug FROM failures") where !slugs.contains(row[0]) {
+      try db.execute("DELETE FROM failures WHERE slug=?", [row[0]])
+    }
+  }
+  func recordFailure(_ page: WikiPage) throws {
+    try db.transaction {
+      try db.execute(
+        "INSERT OR REPLACE INTO failures VALUES (?,?,?)",
+        [page.slug, String(page.revision), String(Date().timeIntervalSince1970)])
+      // A now-unreadable original cannot remain a current search result.
+      try db.execute("DELETE FROM passages WHERE slug=?", [page.slug])
+      try db.execute("DELETE FROM indexed WHERE slug=?", [page.slug])
+    }
+  }
+  func recentlyFailed(_ slug: String, revision: Int) throws -> Bool {
+    guard
+      let row = try db.query("SELECT revision,failed_at FROM failures WHERE slug=?", [slug]).first
+    else { return false }
+    return Int(row[0]) == revision && Date().timeIntervalSince1970 - (Double(row[1]) ?? 0) < 60
+  }
+  func failureCount(_ revisions: [String: Int]) throws -> Int {
+    try db.query("SELECT slug,revision FROM failures").filter { revisions[$0[0]] == Int($0[1]) }
+      .count
   }
   func coverage(_ revisions: [String: Int]) throws -> Int {
     let rows = try db.query(
@@ -152,10 +189,47 @@ final class SemanticCache: @unchecked Sendable {
       revisions: Dictionary(uniqueKeysWithValues: pages.map { ($0.slug, $0.revision) }))
   }
   func matches(query: [Float], revisions: [String: Int]) throws -> [String: SemanticMatch] {
+    let groups = try modalityMatches(query: query, revisions: revisions)
+    var best = [String: SemanticMatch]()
+    for group in groups.values {
+      for (key, match) in group where match.similarity > (best[key]?.similarity ?? -.infinity) {
+        best[key] = match
+      }
+    }
+    return best
+  }
+  /// Gemma 2 places every modality in one normalized vector space. Rank its candidates
+  /// by cosine; independent modality ranks would promote an unrelated singleton audio file.
+  /// Retain 20 candidates per modality before the combined search applies its limit.
+  func rankedMatches(query: [Float], revisions: [String: Int]) throws
+    -> [(key: String, match: SemanticMatch)]
+  {
+    let groups = try modalityMatches(query: query, revisions: revisions)
+    var evidence = [String: SemanticMatch]()
+    for modality in groups.keys.sorted() {
+      let group = groups[modality]!
+      let ordered = group.keys.sorted {
+        group[$0]!.similarity > group[$1]!.similarity
+          || (group[$0]!.similarity == group[$1]!.similarity && $0 < $1)
+      }
+      for key in ordered.prefix(20) {
+        if group[key]!.similarity > (evidence[key]?.similarity ?? -.infinity) {
+          evidence[key] = group[key]!
+        }
+      }
+    }
+    return evidence.keys.sorted {
+      evidence[$0]!.similarity > evidence[$1]!.similarity
+        || (evidence[$0]!.similarity == evidence[$1]!.similarity && $0 < $1)
+    }.map { ($0, evidence[$0]!) }
+  }
+  private func modalityMatches(query: [Float], revisions: [String: Int]) throws
+    -> [String: [String: SemanticMatch]]
+  {
     guard query.count == 768, query.allSatisfy(\.isFinite) else {
       throw WikiError.invalid("query vector")
     }
-    var best = [String: SemanticMatch]()
+    var best = [String: [String: SemanticMatch]]()
     // ponytail: flat 768-dimensional scan for personal libraries; measure before introducing ANN storage.
     try db.transaction(readOnly: true) {
       var cursor = 0
@@ -175,12 +249,15 @@ final class SemanticCache: @unchecked Sendable {
           }
           var score: Float = 0
           vDSP_dotpr(query, 1, vector, 1, &score, 768)
-          // Gemma's cosine scale is not Qwen's. Rank candidates; never infer answerability from a fixed score.
-          if score.isFinite && score > (best[row[0]]?.similarity ?? -.infinity) {
-            best[row[0]] = SemanticMatch(
+          // Similarity ranks candidates; it does not establish answerability.
+          let modality = passage.media?.kind ?? "text"
+          if score.isFinite && score > (best[modality]?[row[0]]?.similarity ?? -.infinity) {
+            best[modality, default: [:]][row[0]] = SemanticMatch(
               excerpt: passage.excerpt, heading: passage.heading, similarity: score,
-              method: "semantic",
-              revision: revisions[row[0]]!)
+              method: modality == "audio" ? "audio" : modality == "image" ? "visual" : "semantic",
+              revision: revisions[row[0]]!, page: passage.media?.pageNumber ?? passage.pageNumber,
+              modality: modality, startSeconds: passage.media?.startSeconds,
+              endSeconds: passage.media?.endSeconds)
           }
         }
       }
@@ -190,8 +267,15 @@ final class SemanticCache: @unchecked Sendable {
 }
 
 public enum EmbeddingAssets {
-  public static let modelHash = "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63"
-  static let identity = modelHash + ":paragraph-v1:384:title80:prefix128"
+  public static let modelHash = "2188ac1deca4b77dffefd603c2776a9d76d9d74ec01841392982ebb840b09135"
+  public static let projectorHash =
+    "c4a8a52691ecef40618438928bdf9e68379b854e24166f292592353db0aab64f"
+  static let identity =
+    modelHash + ":" + projectorHash + ":multimodal-v3:384:title80:prefix128:jpeg2048:audio20mono16k"
+  static let cacheFilename =
+    "embedding-" + WikiStore.digest(Data(identity.utf8)).prefix(16) + ".sqlite3"
+  static let failureFilename =
+    "runtime-failure-" + WikiStore.digest(Data(identity.utf8)).prefix(16) + ".json"
   static var disabled: Bool {
     ProcessInfo.processInfo.environment["GALPIUM_SEMANTIC_DISABLED"] == "1"
   }
@@ -208,7 +292,13 @@ public enum EmbeddingAssets {
     if let path = ProcessInfo.processInfo.environment["GALPIUM_EMBEDDING_MODEL"] {
       return URL(fileURLWithPath: path)
     }
-    return directory.appendingPathComponent("embeddinggemma-300M-Q8_0.gguf")
+    return directory.appendingPathComponent("embeddinggemma-2-Q8_0.gguf")
+  }
+  static var projector: URL {
+    if let path = ProcessInfo.processInfo.environment["GALPIUM_EMBEDDING_PROJECTOR"] {
+      return URL(fileURLWithPath: path)
+    }
+    return directory.appendingPathComponent("mmproj-embeddinggemma-2-Q8_0.gguf")
   }
   static var runtime: URL {
     if let path = ProcessInfo.processInfo.environment["GALPIUM_EMBEDDING_RUNTIME"] {
@@ -220,6 +310,7 @@ public enum EmbeddingAssets {
     !disabled && FileManager.default.isExecutableFile(atPath: worker.path)
       && FileManager.default.isExecutableFile(atPath: runtime.path)
       && FileManager.default.fileExists(atPath: model.path)
+      && FileManager.default.fileExists(atPath: projector.path)
   }
 }
 
@@ -236,17 +327,21 @@ extension WikiStore {
         totalPages: pages.count, indexedMaterials: 0, totalMaterials: materials.count)
     }
     let failed =
-      (try? Data(contentsOf: root.appendingPathComponent("search-cache/runtime-failure.json")))
+      (try? Data(
+        contentsOf: root.appendingPathComponent("search-cache/" + EmbeddingAssets.failureFilename)))
       .flatMap { try? JSONDecoder().decode(Double.self, from: $0) }
     let coolingDown = failed.map { Date().timeIntervalSince1970 - $0 < 30 } ?? false
+    let failedMaterials = (try? cache.failureCount(materials)) ?? 0
+    let failedPages = (try? cache.failureCount(pages)) ?? 0
     return SemanticStatus(
       state: !EmbeddingAssets.available
         ? "not_configured"
         : coolingDown
           ? "unavailable"
-          : indexed == pages.count && indexedMaterials == materials.count ? "ready" : "warming",
+          : indexed == pages.count && indexedMaterials == materials.count
+            ? "ready" : failedMaterials + failedPages > 0 ? "partial" : "warming",
       indexedPages: indexed, totalPages: pages.count, indexedMaterials: indexedMaterials,
-      totalMaterials: materials.count)
+      totalMaterials: materials.count, failedMaterials: failedMaterials, failedPages: failedPages)
   }
   public func scheduleSemanticIndex() {
     let status = semanticStatus()

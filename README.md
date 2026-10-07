@@ -5,23 +5,29 @@
 A native macOS personal wiki that keeps your original materials, linked knowledge,
 and AI-assisted writing in one local library.
 
-[Download v0.0.1](https://github.com/KimEJ/Galpium/releases/tag/v0.0.1) ·
+[Download v0.0.2](https://github.com/KimEJ/Galpium/releases/tag/v0.0.2) ·
 [User guide](docs/USER-GUIDE.en.md)
+
+Version **0.0.2** includes local semantic search across text, images, PDF pages
+and audio.
 
 ## What it does
 
 - Write and edit Markdown with a native editor, preview, tables and images.
-- Keep text, PDFs and files together as materials, with search and reference counts.
+- Keep text, PDFs, images, audio and other files together as materials, with search
+  and reference counts.
 - Cite exact original passages with footnotes that retain the original hash,
   extraction snapshot and page location.
 - Find related knowledge with offline Korean, English and Japanese hybrid search.
+- Search original images, PDF page visuals and audio segments with text queries,
+  alongside readable text, using bundled EmbeddingGemma 2.
 - Connect ChatGPT desktop and other MCP clients to the same library, with revision
   guards, history, archive/restore and full backups.
 - Preserve requests and chat provenance. Web URLs and local ChatGPT deep links
   share the same source URL field.
 
 Galpium works offline. AI writing is performed by the connected client; the app
-bundles EmbeddingGemma for search, not a chat model. The client you connect may
+bundles EmbeddingGemma 2 for search, not a chat model. The client you connect may
 send the materials you ask it to read to its model provider.
 
 ## Install
@@ -29,7 +35,7 @@ send the materials you ask it to read to its model provider.
 The published binary targets **Apple silicon, macOS 14 or later**. Intel users
 can build from source on an Intel Mac; an Intel binary is not included in this release.
 
-1. Download [Galpium-0.0.1-arm64.dmg](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-0.0.1-arm64.dmg).
+1. Download [Galpium-0.0.2-arm64.dmg](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-0.0.2-arm64.dmg).
 2. Drag **Galpium.app** to **Applications** and open it.
 3. Create a page or add materials. The search model is already bundled.
 
@@ -49,7 +55,7 @@ Language**. Your documents and materials retain their original language.
 
 Install Galpium and ChatGPT in Applications. Then:
 
-1. Download [Galpium-Codex-Plugin-0.0.1.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-Codex-Plugin-0.0.1.zip) and extract it.
+1. Download [Galpium-Codex-Plugin-0.0.2.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-Codex-Plugin-0.0.2.zip) and extract it.
 2. Open the extracted **Galpium-Codex** folder. It contains the installer
    **Install Galpium Plugin.command**, the **plugin** folder, and **LICENSE** and
    **NOTICE** files.
@@ -79,14 +85,14 @@ diagrams, and preserves original citations and the request context.
 
 ## Verify the download
 
-Download [SHA256SUMS](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/SHA256SUMS)
+Download [SHA256SUMS](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/SHA256SUMS)
 into the same directory as the DMG and plugin ZIP, then run:
 
 ```sh
 shasum -a 256 -c SHA256SUMS
 ```
 
-Published release assets and the `v0.0.1` tag are immutable. Updates use a new
+Published release assets and the `v0.0.2` tag are immutable. Updates use a new
 version and release instead of replacing an existing download.
 
 ## Build and test
@@ -116,12 +122,16 @@ and [design conventions](DESIGN.md).
 ## Current limits
 
 - Image/scanned-PDF OCR is not included; searchable PDF text is extracted locally.
+- Visual and audio matches point to the original page or time segment; they do
+  not create exact quotations, image descriptions or transcripts. Video indexing
+  is not included.
 - Workspaces are personal local libraries, without built-in cloud sync.
 - Public binaries are Apple silicon only and are not yet Apple-notarized.
 
 ## License
 
 Galpium source code, plugin and documentation are licensed under
-[Apache License 2.0](LICENSE). Bundled EmbeddingGemma weights use the
-[Gemma Terms of Use](https://ai.google.dev/gemma/terms); llama.cpp and its vendors
+[Apache License 2.0](LICENSE). The bundled
+[EmbeddingGemma 2 weights](https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2)
+also use Apache 2.0; llama.cpp and its vendors
 retain their respective licenses. See [third-party notices](THIRD-PARTY-NOTICES.md).

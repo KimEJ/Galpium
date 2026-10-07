@@ -257,6 +257,10 @@
 "자료 %ld개" = "%ld materials";
 "종류" = "Type";
 "이미지" = "Images";
+"오디오" = "Audio";
+"이미지 일치" = "Visual match";
+"오디오 일치" = "Audio match";
+"일부 자료의 의미 검색을 준비하지 못했습니다" = "Semantic search is unavailable for some materials";
 "기타 파일" = "Other Files";
 "표시할 자료가 없습니다." = "No materials to show.";
 "%@ 자료 동작" = "Actions for %@";

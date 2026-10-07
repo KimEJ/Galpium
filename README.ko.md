@@ -5,22 +5,26 @@
 원본 자료, 연결된 지식과 AI를 활용한 문서 작성을 하나의 로컬 저장소에서
 관리하는 macOS 네이티브 개인 위키입니다.
 
-[v0.0.1 다운로드](https://github.com/KimEJ/Galpium/releases/tag/v0.0.1) ·
+[v0.0.2 다운로드](https://github.com/KimEJ/Galpium/releases/tag/v0.0.2) ·
 [사용 안내](docs/USER-GUIDE.md)
+
+**0.0.2**는 텍스트·이미지·PDF 쪽·오디오를 함께 찾는 로컬 의미 검색을 제공합니다.
 
 ## 주요 기능
 
 - 네이티브 편집기에서 Markdown을 작성하고 표·이미지와 함께 미리 봅니다.
-- 텍스트·PDF·파일을 자료로 통합 관리하고 검색과 참조 수를 확인합니다.
+- 텍스트·PDF·이미지·오디오·기타 파일을 자료로 통합 관리하고 검색과 참조 수를 확인합니다.
 - 원문 해시, 추출본과 쪽 위치를 보존하는 각주로 실제 원문 구절을 인용합니다.
 - 오프라인 한국어·영어·일본어 하이브리드 검색으로 관련 지식을 찾습니다.
+- 동봉된 EmbeddingGemma 2로 읽을 수 있는 텍스트와 함께 원본 이미지, PDF 쪽의
+  시각적 내용과 오디오 구간을 글로 검색합니다.
 - ChatGPT 데스크톱과 다른 MCP 클라이언트를 같은 저장소에 연결합니다.
   개정 충돌 검사, 변경 이력, 보관·복원과 전체 백업을 지원합니다.
 - 요청 프롬프트와 채팅 출처를 보존합니다. 웹 URL과 로컬 ChatGPT 딥링크를
   같은 출처 URL 필드에 넣을 수 있습니다.
 
 Galpium은 오프라인으로 사용할 수 있습니다. AI 문서 작성은 연결된 클라이언트가
-수행하며, 앱에 포함된 EmbeddingGemma는 검색용 모델입니다. 연결한 클라이언트는
+수행하며, 앱에 포함된 EmbeddingGemma 2는 검색용 모델입니다. 연결한 클라이언트는
 읽도록 요청한 자료를 해당 모델 제공자에게 전송할 수 있습니다.
 
 ## 설치
@@ -28,7 +32,7 @@ Galpium은 오프라인으로 사용할 수 있습니다. AI 문서 작성은 �
 배포 바이너리는 **Apple silicon, macOS 14 이상**을 대상으로 합니다.
 Intel Mac에서는 소스로 빌드할 수 있지만 이번 릴리스에 Intel 바이너리는 포함되지 않습니다.
 
-1. [Galpium-0.0.1-arm64.dmg](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-0.0.1-arm64.dmg)을 다운로드합니다.
+1. [Galpium-0.0.2-arm64.dmg](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-0.0.2-arm64.dmg)을 다운로드합니다.
 2. **Galpium.app**을 **Applications** 폴더로 옮기고 실행합니다.
 3. 문서를 만들거나 자료를 추가합니다. 검색 모델은 앱에 포함되어 있습니다.
 
@@ -47,7 +51,7 @@ Dock 또는 메뉴 막대에서 다시 열 수 있으며, **⌘Q**로 종료합�
 
 Galpium과 ChatGPT를 Applications에 설치한 뒤 다음과 같이 진행합니다.
 
-1. [Galpium-Codex-Plugin-0.0.1.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/Galpium-Codex-Plugin-0.0.1.zip)을 다운로드하고 압축을 해제합니다.
+1. [Galpium-Codex-Plugin-0.0.2.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-Codex-Plugin-0.0.2.zip)을 다운로드하고 압축을 해제합니다.
 2. 생성된 **Galpium-Codex** 폴더를 엽니다. 안에는 설치 파일
    **Install Galpium Plugin.command**, 플러그인이 담긴 **plugin** 폴더,
    **LICENSE**와 **NOTICE** 파일이 있습니다.
@@ -78,14 +82,14 @@ Galpium과 ChatGPT를 Applications에 설치한 뒤 다음과 같이 진행합�
 ## 다운로드 검증
 
 DMG와 플러그인 ZIP을 받은 폴더에
-[SHA256SUMS](https://github.com/KimEJ/Galpium/releases/download/v0.0.1/SHA256SUMS)를
+[SHA256SUMS](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/SHA256SUMS)를
 다운로드한 뒤 실행합니다.
 
 ```sh
 shasum -a 256 -c SHA256SUMS
 ```
 
-공개 릴리스의 파일과 `v0.0.1` 태그는 변경할 수 없도록 고정되어 있습니다.
+공개 릴리스의 파일과 `v0.0.2` 태그는 변경할 수 없도록 고정되어 있습니다.
 업데이트는 기존 다운로드를 교체하는 대신 새 버전과 릴리스로 제공합니다.
 
 ## 빌드와 검사
@@ -115,12 +119,14 @@ GALPIUM_SEMANTIC_DISABLED=1 swift test --disable-sandbox --filter ChatLinkTests
 ## 현재 제한
 
 - 이미지·스캔 PDF의 OCR은 제공하지 않습니다. 텍스트가 있는 PDF는 로컬에서 추출합니다.
+- 이미지·오디오 검색 결과는 원본 쪽이나 시간 구간을 안내합니다. 정확한 인용문,
+  이미지 설명이나 전사문을 생성하지 않으며 영상 색인은 제공하지 않습니다.
 - 저장소는 개인용 로컬 저장소이며, 내장 클라우드 동기화는 제공하지 않습니다.
 - 공개 바이너리는 Apple silicon용이며 아직 Apple 공증을 받지 않았습니다.
 
 ## 라이선스
 
 Galpium 소스 코드·플러그인·문서는 [Apache License 2.0](LICENSE)으로 공개합니다.
-동봉된 EmbeddingGemma 가중치에는 [Gemma 이용약관](https://ai.google.dev/gemma/terms)이
-적용되며, llama.cpp와 포함된 외부 코드는 각각의 라이선스를 유지합니다.
+동봉된 [EmbeddingGemma 2 가중치](https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2)도
+Apache 2.0이며, llama.cpp와 포함된 외부 코드는 각각의 라이선스를 유지합니다.
 [서드 파티 고지](THIRD-PARTY-NOTICES.md)를 참고하세요.

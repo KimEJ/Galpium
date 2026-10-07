@@ -16,6 +16,17 @@ public struct WikiMaterial: Codable, Identifiable, Equatable, Sendable {
   public var createdAt: String
   public var revision: Int
   public var originalHash: String
+  public static let audioExtensions: Set<String> = [
+    "wav", "mp3", "m4a", "aac", "flac", "aiff", "aif", "caf",
+  ]
+  // Older libraries registered audio as an ordinary file. Interpret those records
+  // without rewriting their original metadata or revision history.
+  var effectiveKind: String {
+    kind == "file"
+      && Self.audioExtensions.contains(
+        URL(fileURLWithPath: title).pathExtension.lowercased())
+      ? "audio" : kind
+  }
   public static func sourceID(_ slug: String) -> String {
     "s-" + WikiStore.digest(Data(slug.utf8)).prefix(30)
   }
@@ -95,7 +106,9 @@ extension SQLite {
       ext == "pdf"
       ? "pdf"
       : ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff"].contains(ext)
-        ? "image" : ["txt", "md", "markdown"].contains(ext) ? "text" : "file"
+        ? "image"
+        : WikiMaterial.audioExtensions.contains(ext)
+          ? "audio" : ["txt", "md", "markdown"].contains(ext) ? "text" : "file"
     try registerMaterial(
       WikiMaterial(
         id: WikiMaterial.fileID(item.id), title: item.name, kind: kind, fileID: item.id, url: "",
@@ -109,7 +122,9 @@ extension WikiStore {
     guard let row = try db.query("SELECT data FROM materials WHERE id=?", [id]).first else {
       throw WikiError.notFound("material")
     }
-    return try WikiJSON.decoder().decode(WikiMaterial.self, from: Data(row[0].utf8))
+    var item = try WikiJSON.decoder().decode(WikiMaterial.self, from: Data(row[0].utf8))
+    item.kind = item.effectiveKind
+    return item
   }
   public func materialForSource(_ slug: String) throws -> WikiMaterial {
     guard
@@ -123,11 +138,15 @@ extension WikiStore {
     -> [WikiMaterial]
   {
     guard ["all", "active", "archived"].contains(status),
-      ["all", "text", "pdf", "image", "file"].contains(kind)
+      ["all", "text", "pdf", "image", "audio", "file"].contains(kind)
     else { throw WikiError.invalid("material filter") }
     let items = try db.query(
       "SELECT data FROM materials ORDER BY json_extract(data,'$.created_at') DESC,id"
-    ).map { try WikiJSON.decoder().decode(WikiMaterial.self, from: Data($0[0].utf8)) }
+    ).map {
+      var item = try WikiJSON.decoder().decode(WikiMaterial.self, from: Data($0[0].utf8))
+      item.kind = item.effectiveKind
+      return item
+    }
     return items.filter {
       (status == "all" || $0.status == status) && (kind == "all" || $0.kind == kind)
         && (query.isEmpty || $0.title.localizedStandardContains(query))
@@ -383,18 +402,24 @@ extension WikiStore {
   func semanticDocument(_ key: String) throws -> WikiPage {
     guard key.hasPrefix("material:") else { return try page(key) }
     let item = try material(String(key.dropFirst(9)))
-    guard item.status == "active", let text = try materialExtraction(item.id), !text.pages.isEmpty
-    else {
+    guard item.status == "active", ["text", "pdf", "image", "audio"].contains(item.kind) else {
+      throw WikiError.notFound("searchable material")
+    }
+    try verifyOriginal(item)
+    let pages = try materialExtraction(item.id)?.pages ?? []
+    guard !pages.isEmpty || item.kind != "text" else {
       throw WikiError.notFound("searchable material")
     }
     return WikiPage(
       slug: key, title: item.title,
-      body: text.pages.map { "## Page \($0.number)\n\n" + $0.text }.joined(separator: "\n\n"),
+      body: pages.isEmpty
+        ? ""
+        : pages.map { "## Page \($0.number)\n\n" + $0.text }.joined(separator: "\n\n"),
       revision: item.revision)
   }
   func semanticDocuments() throws -> [WikiPage] {
     var docs = try pages()
-    for item in try materials() where item.kind == "text" || item.kind == "pdf" {
+    for item in try materials() where ["text", "pdf", "image", "audio"].contains(item.kind) {
       if let doc = try? semanticDocument("material:" + item.id) { docs.append(doc) }
     }
     return docs
@@ -403,7 +428,11 @@ extension WikiStore {
     var result = Dictionary(
       uniqueKeysWithValues: try db.query("SELECT slug,revision FROM pages WHERE status='active'")
         .map { ($0[0], Int($0[1]) ?? 0) })
-    for item in try materials() where item.kind == "text" || item.kind == "pdf" {
+    for item in try materials() where ["text", "pdf", "image", "audio"].contains(item.kind) {
+      if item.kind != "text" {
+        result["material:" + item.id] = item.revision
+        continue
+      }
       let empty = try db.query(
         "SELECT 1 FROM material_extracts WHERE material_id=? AND json_array_length(json_extract(data,'$.pages'))=0 LIMIT 1",
         [item.id])
@@ -427,6 +456,7 @@ extension WikiStore {
       if words.allSatisfy({ text.localizedStandardContains($0) }) { lexical.append(item.id) }
     }
     var matches = [String: SemanticMatch]()
+    var semanticCandidates = [String]()
     var state = semanticStatus().state
     if status == "active", EmbeddingAssets.available, !items.isEmpty {
       do {
@@ -436,19 +466,29 @@ extension WikiStore {
           let fresh = try materials(status: status, kind: kind)
           let versions = Dictionary(
             uniqueKeysWithValues: fresh.map { ("material:" + $0.id, $0.revision) })
-          let semantic = try SemanticCache(root: root).matches(query: vector, revisions: versions)
-          for (key, match) in semantic { matches[String(key.dropFirst(9))] = match }
+          let semantic = try SemanticCache(root: root).rankedMatches(
+            query: vector, revisions: versions)
+          for (key, match) in semantic {
+            let id = String(key.dropFirst(9))
+            matches[id] = match
+            semanticCandidates.append(id)
+          }
         }
+        state = semanticStatus().state
       } catch { state = "unavailable" }
-    }
-    let candidates = matches.keys.sorted { matches[$0]!.similarity > matches[$1]!.similarity }
-      .prefix(20)
-    var scores = [String: Double]()
-    for list in [lexical, Array(candidates)] {
-      for (rank, id) in list.enumerated() { scores[id, default: 0] += 1 / Double(61 + rank) }
     }
     let fresh = try materials(status: status, kind: kind)
     let byID = Dictionary(uniqueKeysWithValues: fresh.map { ($0.id, $0) })
+    let originalRevisions = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0.revision) })
+    let currentLexical = lexical.filter { byID[$0]?.revision == originalRevisions[$0] }
+    let currentSemantic = semanticCandidates.filter {
+      guard let item = byID[$0] else { return false }
+      return matches[$0]?.revision == item.revision
+    }
+    var scores = [String: Double]()
+    for list in [currentLexical, Array(currentSemantic.prefix(20))] {
+      for (rank, id) in list.enumerated() { scores[id, default: 0] += 1 / Double(61 + rank) }
+    }
     let ordered = scores.keys.sorted {
       scores[$0]! > scores[$1]! || (scores[$0] == scores[$1] && $0 < $1)
     }

@@ -3,11 +3,14 @@
 **English** · [한국어](USER-GUIDE.md) · [日本語](USER-GUIDE.ja.md) ·
 [README](../README.md)
 
+This guide covers **Galpium 0.0.2**, including local semantic search across text,
+images, PDF pages and audio.
+
 ## Installation and first launch
 
 Place Galpium.app in Applications and open it. The app includes the wiki engine
 and MCP executable. Node, Docker and a server account are not required.
-The public v0.0.1 distribution targets Apple silicon and macOS 14 or later and
+The public v0.0.2 distribution targets Apple silicon and macOS 14 or later and
 uses an ad-hoc signature. It is not Apple-notarized. If macOS asks you to approve
 the app, use **System Settings → Privacy & Security**.
 
@@ -88,11 +91,11 @@ completing the swipe briefly fades to the previous or next document.
 **⌘K** focuses search. Active pages combine keyword search with Korean, English
 and Japanese paragraph-level semantic search. You can find related documents
 with different wording or a question in another language. Tag and archive-state
-filters apply to all results. Readable text and PDF contents in materials also
-participate in semantic search. Archived items use keyword search.
+filters apply to all results. Text queries also search readable material text,
+original images, PDF page visuals and audio segments. Archived items use keyword search.
 
-EmbeddingGemma is bundled with the app and is not loaded when there are no
-documents. After documents are added, paragraph indexing runs in the background
+EmbeddingGemma 2 is bundled with the app and is not loaded when there are no
+pages or materials. After content is added, paragraph and material indexing runs in the background
 and search requests take priority. Keyword results appear while it gets ready.
 The shared worker and model shut down after 60 seconds without search or indexing
 work. The app and MCP share the worker when using the same library. Read the
@@ -125,12 +128,17 @@ not been organized and missing attachments. It does not check factual accuracy.
 
 ## Materials and footnotes
 
-Manage text, PDFs, images and other files in a single list under **Materials**
-in the sidebar. Search at the top matches names and readable contents. Use
+Manage text, PDFs, images, audio and other files in a single list under **Materials**
+in the sidebar. Use the search at the top to find materials by name or content. Use
 **Add Material** to add a file or text, or drop files onto the list. Click a
 row to open the material's details. PDFs offer **Preview / Text**, and images
-have a thumbnail preview. There is no OCR for images or scanned PDFs; materials
-without readable text can be found by name.
+have a thumbnail preview. Galpium does not create OCR text or audio transcripts.
+Images and PDF pages are searched by visual content, and audio by segment content;
+results identify the original page or time segment. Selecting a PDF result opens
+the matched page; an audio result opens a paused player at the segment's start.
+Start playback when ready. A visual or audio similarity
+match is not a verified quotation. Exact citation footnotes require an actual
+passage in the material's readable original text. Video indexing is not included.
 
 Click a reference count to see references from current pages, materials, drafts
 and history. The **…** menu offers rename, open in an external app, show in
@@ -246,6 +254,10 @@ Original bodies and existing revision snapshots are preserved while the current
 page/source relationships and search index are built. A failed conversion rolls
 back to the previous format. An older app will not overwrite a library created
 by a newer app version.
+
+When the search model changes in 0.0.2, the existing library's derived index is
+rebuilt automatically. Original files, extraction snapshots, pages, citations and
+revision history are preserved. Keyword search remains available during reindexing.
 
 Completion and information notices close automatically after 4 seconds. A new
 notice restarts the timer. Errors stay visible until you click the close button.

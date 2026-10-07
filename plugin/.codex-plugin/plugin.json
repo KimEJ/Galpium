@@ -1,6 +1,6 @@
 {
   "name": "galpium",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "로컬 Galpium 위키의 원본과 출처, 문서 및 변경 이력을 관리합니다.",
   "author": {
     "name": "Galpium contributors"

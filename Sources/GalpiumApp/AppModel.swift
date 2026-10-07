@@ -31,6 +31,8 @@ final class AppModel: ObservableObject {
   private var searchTask: Task<Void, Never>?
   private var searchGeneration = 0
   private var semanticCoverage = -1
+  private var semanticState = ""
+  private var semanticRetryAt = Date.distantPast
   @Published var status = "active"
   @Published var tag: String?
   @Published var isEditing = false
@@ -60,6 +62,9 @@ final class AppModel: ObservableObject {
     set { materialQuery = newValue }
   }
   @Published var materials = [WikiMaterial]()
+  @Published var materialSearchMatches = [String: SemanticMatch]()
+  @Published var materialSearchState = ""
+  @Published var materialSearchIsRunning = false
   @Published var materialKind = "all"
   @Published var archiveKind = "pages"
   @Published var selectedMaterial: String?
@@ -68,6 +73,7 @@ final class AppModel: ObservableObject {
   @Published var materialTextLoading = false
   @Published var materialTextError: String?
   @Published var materialPage = 1
+  @Published var materialStartSeconds: Double = 0
   @Published var materialQuote = ""
   @Published var materialExtractionID: String?
   @Published var materialReferences = [MaterialReference]()
@@ -116,8 +122,13 @@ final class AppModel: ObservableObject {
         }
         let state = store.semanticStatus()
         let coverage = state.indexedPages + state.indexedMaterials
-        if store.changeToken != self.token || coverage != self.semanticCoverage {
+        if store.changeToken != self.token || coverage != self.semanticCoverage
+          || state.state != self.semanticState
+        {
           self.perform { try self.refresh() }
+        } else if state.state == "partial", Date().timeIntervalSince(self.semanticRetryAt) >= 60 {
+          self.semanticRetryAt = Date()
+          store.scheduleSemanticIndex()
         }
       }
     }
@@ -182,6 +193,8 @@ final class AppModel: ObservableObject {
     token = store.changeToken
     let semantic = store.semanticStatus()
     semanticCoverage = semantic.indexedPages + semantic.indexedMaterials
+    semanticState = semantic.state
+    if semantic.state == "partial" { semanticRetryAt = Date() }
     store.scheduleSemanticIndex()
     startHybridSearch()
     if isEditing, let latest = try? store.page(draft.slug), latest.revision != draft.revision {
@@ -281,6 +294,7 @@ final class AppModel: ObservableObject {
     var materialKind: String
     var archiveKind: String
     var materialPage: Int
+    var materialStartSeconds: Double
     var materialQuote: String
     var materialExtractionID: String?
   }
@@ -289,7 +303,8 @@ final class AppModel: ObservableObject {
       section: section, status: status, search: search, attachmentQuery: attachmentQuery, tag: tag,
       page: selected,
       source: selectedSource, material: selectedMaterial, materialKind: materialKind,
-      archiveKind: archiveKind, materialPage: materialPage, materialQuote: materialQuote,
+      archiveKind: archiveKind, materialPage: materialPage,
+      materialStartSeconds: materialStartSeconds, materialQuote: materialQuote,
       materialExtractionID: materialExtractionID)
   }
   var canGoBack: Bool { !isBusy && !isEditing && !isRenamingAttachment && !backLocations.isEmpty }
@@ -322,6 +337,7 @@ final class AppModel: ObservableObject {
             materialKind = location.materialKind
             archiveKind = location.archiveKind
             materialPage = location.materialPage
+            materialStartSeconds = location.materialStartSeconds
             materialQuote = location.materialQuote
             materialExtractionID = location.materialExtractionID
             openedPage = page
@@ -909,7 +925,29 @@ extension AppModel {
       selectedSource = nil
     }
   }
-  func openMaterial(_ id: String, page: Int = 1, extractionID: String? = nil, quote: String = "") {
+  func materialSearchMatch(for item: WikiMaterial) -> SemanticMatch? {
+    guard !materialQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      let match = materialSearchMatches[item.id], match.revision == item.revision
+    else { return nil }
+    return match
+  }
+  func openMaterialSearchResult(_ item: WikiMaterial) {
+    guard let store else { return }
+    perform {
+      let current = try store.material(item.id)
+      let match = materialSearchMatch(for: current)
+      let isText =
+        match?.modality != "image" && match?.modality != "audio"
+        && match?.method != "visual" && match?.method != "audio"
+      openMaterial(
+        item.id, page: match?.page ?? 1, quote: isText ? match?.excerpt ?? "" : "",
+        startSeconds: match?.startSeconds ?? 0)
+    }
+  }
+  func openMaterial(
+    _ id: String, page: Int = 1, extractionID: String? = nil, quote: String = "",
+    startSeconds: Double = 0
+  ) {
     guard let store else { return }
     perform {
       let item = try store.material(id)
@@ -920,7 +958,8 @@ extension AppModel {
         selectedSource = nil
         selectedMaterial = id
         openedMaterial = item
-        materialPage = page
+        materialPage = max(1, page)
+        materialStartSeconds = startSeconds.isFinite ? max(0, startSeconds) : 0
         materialQuote = quote
         materialExtractionID = extractionID
       }) {
@@ -958,12 +997,18 @@ extension AppModel {
   }
   func startMaterialSearch() {
     materialSearchTask?.cancel()
-    guard let store, !materialQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    materialSearchMatches = [:]
+    materialSearchState = ""
+    materialSearchIsRunning = false
+    guard let store else { return }
+    guard !materialQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      perform { materials = try store.materials(status: status, kind: materialKind) }
       return
     }
     let query = materialQuery
     let status = status
     let kind = materialKind
+    materialSearchIsRunning = true
     materialSearchTask = Task { [weak self] in
       do {
         try await Task.sleep(for: .milliseconds(200))
@@ -974,7 +1019,17 @@ extension AppModel {
           self.status == status, self.materialKind == kind
         else { return }
         self.materials = result.items
-      } catch { if !Task.isCancelled { self?.error = error.localizedDescription } }
+        self.materialSearchMatches = result.matches
+        self.materialSearchState = result.state
+        self.materialSearchIsRunning = false
+      } catch {
+        guard let self, !Task.isCancelled, self.section == "materials", self.materialQuery == query,
+          self.status == status, self.materialKind == kind
+        else { return }
+        self.materialSearchState = "unavailable"
+        self.materialSearchIsRunning = false
+        self.error = error.localizedDescription
+      }
     }
   }
   func importMaterials() {
