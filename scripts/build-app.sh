@@ -25,6 +25,7 @@ cp README*.md "$app/Contents/Resources/"
 cp LICENSE NOTICE THIRD-PARTY-NOTICES.md DESIGN.md "$app/Contents/Resources/"
 mkdir -p "$app/Contents/Resources/docs"
 cp docs/*.md "$app/Contents/Resources/docs/"
+cp -R docs/images "$app/Contents/Resources/docs/"
 if [ -n "${GALPIUM_SIGN_IDENTITY:-}" ]; then
   find "$app/Contents/Resources/Embedding/runtime" -type f -name '*.dylib' -exec codesign --force --options runtime --timestamp --sign "$GALPIUM_SIGN_IDENTITY" {} \;
   codesign --force --options runtime --timestamp --sign "$GALPIUM_SIGN_IDENTITY" "$app/Contents/Resources/Embedding/runtime/llama-server"

@@ -1,35 +1,45 @@
-# Galpium
+# Product scope
 
-## Platform and purpose
-macOS 14+ native personal wiki. Preserve original material and let the user or
-connected AI compile linked Markdown, inspect provenance, compare changes and
-restore history. The application works offline without accounts or a server.
+Galpium is a personal wiki for macOS. It stores original materials, authored
+Markdown pages and their relationships in a local library. Pages can be written
+directly or maintained through a connected AI client.
 
-## Confirmed direction
-SwiftUI shell, AppKit/TextKit editing, shared Swift core, SQLite storage and a
-bundled stdio MCP executable. No third-party Swift packages. Bundled llama.cpp and EmbeddingGemma provide offline retrieval. User explicitly
-selected the native implementation. Keep grouped pins/recent pages, unified materials
-(text/files with immutable originals and extraction snapshots), tags, archives,
-footnote citations, backlinks, revision comparison and focused
-split editing within native macOS controls.
+## Main workflows
 
-## Completion criteria
-Run a packaged app; write Korean Markdown and preview; save/reopen; retain drafts;
-import originals and attachments; search and filter; archive/restore; compare
-history; Markdown export and source-preserving Galpium backup/restore;
-connect the same library through MCP with revision guards; pass core and protocol
-regressions and inspect the running native UI. Release artifacts and setup docs
-must be reproducible. Public signing/notarization needs a publisher certificate.
+- Collect text and files as materials, then search and reference them from pages.
+- Write and preview Markdown with a native editor, tables and images.
+- Connect related pages with links, tags, pins and backlinks.
+- Cite exact original passages with footnotes linked to preserved extraction snapshots.
+- Compare page revisions, archive pages and restore earlier versions.
+- Export Markdown or transfer a complete library through backup and import.
+- Use the same library from the app and the standalone MCP server.
 
-## Product boundaries
-Single local personal library, multiple safe SQLite writers. AI composition is
-done by connected clients. Direct authored pages need no source. Original citations
-validate exact quotes and preserve immutable extraction/page locations. Active-page search combines keyword matches with local multilingual EmbeddingGemma
-paragraph retrieval. Model/runtime assets are bundled; no runtime downloads occur. No account identity, Docker service,
-server OAuth, public hosting, cloud sync or built-in AI chat in the native app.
+## Data model
 
-## Data principles
-Originals and past revisions are immutable. Writes require expected revisions.
-Conflicts preserve drafts and require explicit comparison. Attachments live
-separately and are never removed by archive/cancel. Backup imports are
-additive; no destructive replacement of an existing library.
+Original bytes and text are immutable. Extracted text is retained with its method,
+hash and page locations. Citations refer to a specific original and extraction;
+renaming a material does not change an existing citation.
+
+Page edits create revisions. Expected-revision checks prevent concurrent writers
+from silently replacing newer content. Local drafts retain unfinished edits.
+Archiving retains originals, attachments and revision history. Backup imports add
+compatible records and reject divergent records instead of replacing a library.
+
+Search indexes are derived data. They can be rebuilt without changing originals
+or authored pages. Search results identify possible matches; they do not validate
+the factual claims made in a page.
+
+## Runtime and platform
+
+The macOS app and MCP server share a Swift core backed by SQLite. The app uses
+SwiftUI and AppKit/TextKit. EmbeddingGemma 2 and llama.cpp are bundled for local
+text, image, PDF-page and audio retrieval.
+
+Galpium runs without an account or a hosted service. AI composition is performed
+by the connected client, which may send requested content to its model provider.
+Cloud synchronization, shared libraries and a built-in chat model are outside the
+current product scope. OCR, transcription and video indexing are not included.
+
+See the [user guide](docs/USER-GUIDE.en.md) for workflows,
+[architecture](docs/ARCHITECTURE.md) for implementation, and
+[platform extension guide](docs/PORTABILITY.md) for work toward other environments.

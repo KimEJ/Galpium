@@ -2,136 +2,90 @@
 
 **English** · [한국어](README.ko.md) · [日本語](README.ja.md)
 
-A native macOS personal wiki that keeps your original materials, linked knowledge,
-and AI-assisted writing in one local library.
+Galpium is a personal wiki for macOS. Write linked Markdown pages, keep the
+materials behind them, and connect an AI client to help organize your knowledge.
+Pages, original files and revision history stay in a local library on your Mac.
 
-[Download v0.0.2](https://github.com/KimEJ/Galpium/releases/tag/v0.0.2) ·
-[User guide](docs/USER-GUIDE.en.md)
+[Download](https://github.com/KimEJ/Galpium/releases/tag/v0.0.2) ·
+[User guide](docs/USER-GUIDE.en.md) · [Changelog](docs/CHANGELOG.md)
 
-Version **0.0.2** includes local semantic search across text, images, PDF pages
-and audio.
+![A Galpium wiki page with related links and source citations](docs/images/wiki-page.jpg)
 
-## What it does
+*Read pages with related links and citations.*
 
-- Write and edit Markdown with a native editor, preview, tables and images.
-- Keep text, PDFs, images, audio and other files together as materials, with search
-  and reference counts.
-- Cite exact original passages with footnotes that retain the original hash,
-  extraction snapshot and page location.
-- Find related knowledge with offline Korean, English and Japanese hybrid search.
-- Search original images, PDF page visuals and audio segments with text queries,
-  alongside readable text, using bundled EmbeddingGemma 2.
-- Connect ChatGPT desktop and other MCP clients to the same library, with revision
-  guards, history, archive/restore and full backups.
-- Preserve requests and chat provenance. Web URLs and local ChatGPT deep links
-  share the same source URL field.
+## Features
 
-Galpium works offline. AI writing is performed by the connected client; the app
-bundles EmbeddingGemma 2 for search, not a chat model. The client you connect may
-send the materials you ask it to read to its model provider.
+- **Write and connect pages.** Edit Markdown with previews, tables and attachments.
+  Link related pages and follow their backlinks.
+- **Keep sources close.** Collect text, PDFs, images, audio and other files in
+  Materials. Add citation footnotes that open the quoted original passage.
+- **Search locally.** Find pages and materials by keywords or meaning, including
+  images, PDF page visuals and audio segments, using text queries.
+- **Keep a history.** Recover drafts, compare revisions, restore earlier content
+  and back up the whole library.
+- **Work with AI.** Let ChatGPT desktop or another MCP client read and update the
+  same wiki. Keep prompts and chat links as source materials alongside the result.
+
+Writing, storage and search work offline. AI-assisted writing uses the client
+you connect; that client's data-sharing policy applies when it reads the wiki.
+The interface supports English, Korean and Japanese, with a language choice in settings.
+
+![Galpium materials list with file types and reference counts](docs/images/materials.jpg)
+
+*Find original materials and see their reference counts.*
 
 ## Install
 
-The published binary targets **Apple silicon, macOS 14 or later**. Intel users
-can build from source on an Intel Mac; an Intel binary is not included in this release.
+The downloadable app supports **Apple silicon Macs running macOS 14 or later**.
 
 1. Download [Galpium-0.0.2-arm64.dmg](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-0.0.2-arm64.dmg).
-2. Drag **Galpium.app** to **Applications** and open it.
-3. Create a page or add materials. The search model is already bundled.
+2. Drag **Galpium.app** into **Applications** and open it.
+3. Choose **New Page** to start writing, or add files in **Materials**.
 
-This release is **ad-hoc signed and not Apple-notarized**. macOS may require
-explicit approval in **System Settings → Privacy & Security** before opening it.
-A Developer ID/notarized distribution requires publisher signing credentials.
-
-The default library is `~/Library/Application Support/Galpium/`. Choose a different
-library in the app's settings. Closing the window keeps the app available to MCP;
-reopen it from the Dock or menu bar. Quit with **⌘Q**.
-
-The interface supports Korean, English and Japanese. It follows the system
-language by default; choose another language in **Settings → App Settings… →
-Language**. Your documents and materials retain their original language.
+The app includes the search model. If macOS blocks the first launch, allow the app
+in **System Settings → Privacy & Security**.
 
 ## Connect ChatGPT desktop
 
-Install Galpium and ChatGPT in Applications. Then:
+Install Galpium and ChatGPT in **Applications**, then:
 
 1. Download [Galpium-Codex-Plugin-0.0.2.zip](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-Codex-Plugin-0.0.2.zip) and extract it.
-2. Open the extracted **Galpium-Codex** folder. It contains the installer
-   **Install Galpium Plugin.command**, the **plugin** folder, and **LICENSE** and
-   **NOTICE** files.
-3. Double-click **Install Galpium Plugin.command**. A Terminal window opens and
-   installs the plugin. Wait for the **Galpium installed.** message.
+2. Open the **Galpium-Codex** folder. It contains **Install Galpium Plugin.command**,
+   a **plugin** folder, and **LICENSE** and **NOTICE** files.
+3. Double-click **Install Galpium Plugin.command** and wait for the Terminal
+   window to display **Galpium installed.**
 4. Quit ChatGPT with **⌘Q**, reopen it, and select **@Galpium** in a new local chat.
 
-The installer uses ChatGPT's bundled runtime. A separate CLI installation or
-manual configuration edit is not required. This package installs a local
-marketplace plugin; use the extracted installer for this distribution.
+The installer uses ChatGPT's bundled runtime; it does not require a separate CLI
+installation or manual settings edits. See the [user guide](docs/USER-GUIDE.en.md)
+for connection status, other MCP clients and day-to-day use.
 
-For another MCP client, configure stdio:
+## Build from source
 
-```json
-{
-  "mcpServers": {
-    "galpium": {
-      "command": "/Applications/Galpium.app/Contents/MacOS/galpium-mcp"
-    }
-  }
-}
-```
-
-Add `"args": ["--library", "/absolute/path/to/library"]` to select another library.
-The bundled wiki skill integrates related pages, writes clear prose and static
-diagrams, and preserves original citations and the request context.
-
-## Verify the download
-
-Download [SHA256SUMS](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/SHA256SUMS)
-into the same directory as the DMG and plugin ZIP, then run:
-
-```sh
-shasum -a 256 -c SHA256SUMS
-```
-
-Published release assets and the `v0.0.2` tag are immutable. Updates use a new
-version and release instead of replacing an existing download.
-
-## Build and test
-
-Requires macOS 14+, Xcode/Swift 6 and Python 3. No third-party Swift packages,
-Node or Docker are required. The first build downloads checksum-pinned search
-model and runtime assets; subsequent builds reuse the local cache.
+The app, core and MCP server are written in Swift. On macOS 14 or later with
+Xcode/Swift 6 installed, compile the source with:
 
 ```sh
 git clone https://github.com/KimEJ/Galpium.git
 cd Galpium
-sh scripts/build-app.sh
-open dist/Galpium.app
+swift build
 ```
 
-Run checks appropriate to your change. For example:
+To create a runnable `.app` bundle with the search model, follow the
+[development and release guide](docs/RELEASE.md).
+See [Architecture](docs/ARCHITECTURE.md) for the code structure and design rules.
+For shell access and work toward Linux or Windows support, see the
+[portability guide](docs/PORTABILITY.md).
 
-```sh
-GALPIUM_SEMANTIC_DISABLED=1 swift test --disable-sandbox --filter ChatLinkTests
-```
+## Scope
 
-`sh scripts/check.sh` runs the full development checks. Package releases with
-`sh scripts/package-release.sh`. See [release instructions](docs/RELEASE.md),
-[architecture](docs/ARCHITECTURE.md), [semantic search](docs/SEMANTIC-SEARCH.md)
-and [design conventions](DESIGN.md).
-
-## Current limits
-
-- Image/scanned-PDF OCR is not included; searchable PDF text is extracted locally.
-- Visual and audio matches point to the original page or time segment; they do
-  not create exact quotations, image descriptions or transcripts. Video indexing
-  is not included.
-- Workspaces are personal local libraries, without built-in cloud sync.
-- Public binaries are Apple silicon only and are not yet Apple-notarized.
+Galpium uses personal local libraries and has no built-in cloud sync.
+Image and audio search locates related originals; it does not produce OCR text,
+transcripts or verified quotations. PDF text can be quoted when it is readable.
+Video indexing is not supported.
 
 ## License
 
-Galpium source code, plugin and documentation are licensed under
-[Apache License 2.0](LICENSE). The bundled
-[EmbeddingGemma 2 weights](https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2)
-also use Apache 2.0; llama.cpp and its vendors
-retain their respective licenses. See [third-party notices](THIRD-PARTY-NOTICES.md).
+Galpium's source code, plugin and documentation use [Apache License 2.0](LICENSE).
+Licenses for bundled models and external components are listed in
+[Third-party notices](THIRD-PARTY-NOTICES.md).

@@ -1,86 +1,119 @@
-# EmbeddingGemma 2 semantic search
+# Semantic search
 
-Version 0.0.2 combines offline Korean/English/Japanese text retrieval with image,
-PDF-page and audio retrieval in the app and MCP. Search must match current revisions
-and filters, preserve immutable originals and history, release idle model memory,
-avoid model startup for empty libraries and retain keyword fallback on failure.
+Galpium combines keyword retrieval with offline EmbeddingGemma 2 retrieval.
+Wiki text and original materials share the same search service in the app and
+MCP. Images, PDF pages and audio can be indexed directly and searched with text
+queries. Search locates candidates; citations still require exact evidence from
+preserved original text.
 
-The packaged model is [EmbeddingGemma 2](https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2),
-using the [ggml-org Q8_0 GGUF model and Q8_0 multimodal projector](https://huggingface.co/ggml-org/embeddinggemma-2-GGUF)
-with llama.cpp b11468. Text, image and audio embeddings share 768 dimensions.
-The bundled multimodal projector contains both vision and audio encoders; the
-full runtime loads the 740M-parameter model, while text-only operation loads the
-270M-parameter text backbone and embedder.
+## Model assets
+
+The bundled model is [EmbeddingGemma 2](https://ai.google.dev/gemma/docs/embeddinggemma/model_card_2),
+using the [ggml-org Q8_0 GGUF model and multimodal projector](https://huggingface.co/ggml-org/embeddinggemma-2-GGUF)
+with llama.cpp. Text, image and audio embeddings use one normalized
+768-dimensional space. The projector contains vision and audio encoders.
+
 Model, projector and runtime revisions and SHA-256 values are pinned in
-`scripts/prepare-embedding.py`; full Apache 2.0 model license and runtime notices
-are bundled. There is no runtime model download. Video indexing is not implemented.
+[prepare-embedding.py](https://github.com/KimEJ/Galpium/blob/main/scripts/prepare-embedding.py).
+The application bundles these assets with their licenses and notices; it does
+not download a model during use. Release-specific changes are listed in the
+[change history](CHANGELOG.md).
 
-One private Unix-socket worker per library owns the inference process. A process lock
-prevents duplicate workers when the app and MCP start together. The runtime listens
-only on loopback with a generated API key; clients use the private socket. Model and
-worker terminate after 60 seconds without foreground or indexing work. Query work is
-served between background passage or media operations. The multimodal runtime uses
-an 8,192-token context. Queries during indexing reuse that runtime. Once the indexing
-queue drains, the worker stops it and proactively starts the text-query runtime
-with a 2,048-token context and no projector. Only one inference process is owned
-by the worker at a time.
-This is a memory-management policy, not a measured memory guarantee.
+## Indexed inputs
 
-A derived cache outside wiki.sqlite3 is regenerable; it never changes originals,
-revisions or backups. The cache identity includes both model and projector hashes
-and the input preparation version. Upgrading from 0.0.1 automatically builds a
-new derived index; old vectors are not mixed with the new model's vector space.
+Text passages retain titles and heading context. Each passage is limited to
+384 tokens including its prefix, and text inference requests are limited to
+512 tokens. Document inputs use `title: {title} | text: {content}`; queries use
+`task: search result | query: {query}`. Markdown tables and list rows contribute
+text alongside ordinary paragraphs.
 
-Text requests have a 512-token bound. Paragraph inputs preserve headings and titles,
-with a 384-token passage target including the title and heading prefix.
-Text documents use `title: {title} | text: {content}` and queries use
-`task: search result | query: {query}`. Media inputs do not substitute filenames,
-generated descriptions or transcripts for the original content.
-
-Material indexing queues identities and loads one original chunk at a time:
-
-| Material | Indexed input | Location retained |
+| Original | Indexed input | Retained location |
 | --- | --- | --- |
-| Readable text | Title and text paragraphs | Original extraction snapshot and page, when present |
-| Image | Native decoded image, preserving aspect ratio and capped at 2,048 pixels on the longest side without upscaling | Original material |
-| PDF | Existing extracted text and a rendered image of every page | Original page number |
-| Audio | Consecutive 20-second chunks converted locally to mono 16 kHz PCM16 WAV | Start and end seconds |
+| Readable text | Title and text passages from preserved extractions | Original page, when present |
+| Image | Decoded image converted to JPEG, preserving aspect ratio and capped at 2,048 pixels on the longest side | Original material |
+| PDF | Extracted text and a rendered image of every page | Original page number |
+| Audio | Consecutive 20-second segments converted locally to mono 16 kHz PCM16 WAV | Start and end seconds |
 
-Animated images use the first frame. Audio extensions are `wav`, `mp3`, `m4a`,
-`aac`, `flac`, `aiff`, `aif` and `caf`, subject to the actual format being readable
-by macOS AVAudioFile. Native audio inputs must have a sample rate from 8 to 384 kHz
-and at most 32 channels. PDF pages and audio chunks are processed in order without
-sampling away pages or truncating the recording. More than 100,000 PDF pages or
-audio chunks causes the material to fail the resource guard instead of silently
-indexing a partial file. Original hashes are checked
-before using material bytes. A damaged, locked or unsupported material is recorded
-as a failure while other materials continue indexing; a partial index is not
-reported as complete.
+PDFKit and ImageIO prepare visual inputs; AVFoundation prepares audio. Animated
+images use the first frame. Transparent pixels are composited on white for JPEG
+encoding. Media indexing uses original content rather than filenames, generated
+descriptions or transcripts.
 
-Visual and audio matches identify a page or time interval. They are not OCR,
-transcription or verified quotations. Exact citation validation continues to use
-preserved readable original text and extraction snapshots.
-Opening a result navigates to its PDF page or positions the native audio player
-at the matched segment start without automatically playing it.
+Audio extensions are `wav`, `mp3`, `m4a`, `aac`, `flac`, `aiff`, `aif` and `caf`;
+decoding depends on macOS AVAudioFile support for the actual format. Input sample
+rates must be between 8 and 384 kHz, with at most 32 channels. PDF pages and audio
+segments are processed in order. More than 100,000 pages or segments fails the
+resource guard instead of silently indexing only part of a material.
 
-Queries scan vector batches of 256 within a read snapshot. Cache keys include
-the asset identity, input preparation version and exact input. Search rechecks
-current page revision/content, archive state and tags. Page search combines
-keyword candidates and the top 20 semantic page candidates using reciprocal rank
-fusion (RRF).
+Original hashes are verified before using file bytes. Damaged, locked or
+unsupported materials fail individually while other indexing work continues.
+Failed materials leave the index in a partial state. The same material revision
+can be retried by a later indexing request after a 60-second cooldown. Video
+indexing, OCR and transcription are not implemented.
 
-Material search takes up to 20 material candidates from each of the text, image
-and audio rankings and forms their union. Within that union, each material keeps
-its highest-cosine match as evidence. Candidates are sorted globally by cosine in
-EmbeddingGemma 2's shared normalized vector space. The global top 20 semantic
-candidates are then combined with keyword candidates using RRF. The displayed
-page or audio interval comes from the retained match.
-Similarity is not a claim of answerability. Unified active materials use the same
-worker for text and media retrieval; old source-search and archived searches retain
-keyword behavior. Incomplete index coverage is reported as warming, not evidence
-of absence; material failures produce a partial state.
+## Ranking
 
-Validation: derived-cache integrity, stale vector exclusion, filters, token bounds,
-multilingual and multimodal real-model MCP searches, page/time provenance,
-per-material failures, two clients sharing one worker, idle exit,
-restart/cache reuse, fallback and packaged resource/signature checks.
+Vector retrieval scans batches of 256 inside a read snapshot. The service checks
+current page or material revisions, content, archive state and requested filters
+before returning candidates, excluding stale indexed versions.
+
+Page search combines keyword candidates with the top 20 semantic page candidates
+using reciprocal rank fusion (RRF).
+
+Material search uses the following sequence:
+
+1. Retrieve up to 20 material candidates from each text, image and audio ranking.
+2. Form their union and retain each material's highest-cosine match as evidence.
+3. Sort that union by cosine in the model's shared normalized vector space and
+   retain the global top 20 semantic candidates.
+4. Combine those semantic candidates with keyword candidates using RRF.
+
+The retained semantic match supplies the original page or audio interval shown
+in a result. Ranking across modalities uses cosine; RRF combines keyword and
+semantic retrieval. Similarity scores indicate proximity to a query, not whether
+a material answers it.
+
+Active page and material searches use semantic retrieval where available.
+Archived searches and the legacy source-search interface retain keyword behavior.
+While indexing is incomplete, results report warming or partial coverage rather
+than treating missing vectors as evidence that relevant content is absent.
+Inference failures preserve keyword fallback.
+
+## Worker and memory lifecycle
+
+One private worker per library owns the inference runtime. A startup lock and
+worker lease prevent the app and MCP clients from launching duplicate workers.
+Clients connect through a Unix socket in a directory restricted to the current
+user. The inference runtime listens on loopback and uses a generated API key.
+
+Indexing loads one passage or media chunk at a time. Foreground query requests
+are served between those operations. An empty library does not require model
+startup.
+
+During media indexing, the runtime uses an 8,192-token context and the multimodal
+projector. Queries reuse that runtime while indexing is active. Once the queue
+drains, the worker stops the multimodal runtime and starts a text-query runtime
+with a 2,048-token context and no projector. The worker owns at most one inference
+process at a time. After 60 seconds without foreground or indexing work, it stops
+the runtime and exits.
+
+## Cache and evidence contracts
+
+The derived cache lives outside the authoritative wiki database and can be
+rebuilt. Its namespace includes model and projector hashes and an input
+preparation version; entry keys also include exact prepared input. A change to
+assets or preprocessing must use a new namespace, keeping incompatible vectors
+separate. Cache updates do not replace originals, extraction snapshots, citations
+or page history.
+
+Visual and audio matches retain a location in the original. Opening a PDF match
+navigates to its page; opening an audio match positions the native player at the
+segment start without autoplay. These locations do not supply OCR text, a
+transcript or a verified quotation. Exact citation validation remains tied to
+the original hash and the preserved extraction page.
+
+The implementation is in
+[SemanticSearch.swift](https://github.com/KimEJ/Galpium/blob/main/Sources/GalpiumCore/SemanticSearch.swift),
+[SemanticMedia.swift](https://github.com/KimEJ/Galpium/blob/main/Sources/GalpiumCore/SemanticMedia.swift)
+and [EmbeddingService.swift](https://github.com/KimEJ/Galpium/blob/main/Sources/GalpiumCore/EmbeddingService.swift).
+See [architecture](ARCHITECTURE.md) for the library and write contracts.

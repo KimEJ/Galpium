@@ -3,261 +3,222 @@
 **English** · [한국어](USER-GUIDE.md) · [日本語](USER-GUIDE.ja.md) ·
 [README](../README.md)
 
-This guide covers **Galpium 0.0.2**, including local semantic search across text,
-images, PDF pages and audio.
+Galpium stores organized knowledge as **pages** and preserves the original text
+and files behind it as **materials**. Editing a page leaves its original
+materials intact. Links between pages and citation footnotes help you return to
+the evidence behind your notes.
 
-## Installation and first launch
+## Getting started
 
-Place Galpium.app in Applications and open it. The app includes the wiki engine
-and MCP executable. Node, Docker and a server account are not required.
-The public v0.0.2 distribution targets Apple silicon and macOS 14 or later and
-uses an ad-hoc signature. It is not Apple-notarized. If macOS asks you to approve
-the app, use **System Settings → Privacy & Security**.
+Follow the [installation instructions in the README](../README.md#install).
+The first launch opens an empty wiki.
 
-The default library is `~/Library/Application Support/Galpium/`. You can choose
-another library in the app's settings.
+1. Choose **New Page** and enter a title and body.
+2. Choose **Save** or press **⌘S**.
+3. Choose **Done** to return to reading.
 
-Your first wiki is empty. Write directly with **New Page**, or use **Import
-Sources** to preserve UTF-8 Markdown and text files. Imported files appear in
-the materials list. Open a material and choose **New Page from Material** to
-start organizing it.
+To start with an existing file, choose **Materials → Add Material → Import
+Files…** in the sidebar. In a material's details, **New Page from Material**
+opens a new page linked to that material.
 
-Closing the window keeps the app running in the background. Click Galpium in
-the Dock to reopen its main window. **⌘Q** quits the app; a separately running
-MCP process can continue using the same library.
+Use **My Wiki**, **Materials** and **Archive** in the sidebar to navigate. The
+back and forward buttons, **⌘[ / ⌘]**, and macOS page-swipe gestures return to
+previous views. Navigation gestures are unavailable while editing.
 
-## Display language
+## Writing pages
 
-Choose **System Language / 한국어 / English / 日本語** in **Settings → App
-Settings… → Language**. By default, Galpium follows the macOS language order
-and falls back to English if none of those languages is available.
-Your selection is saved and immediately updates the interface, menus and date
-display. It does not translate or change your documents, materials, tags or
-revision contents.
+Open a page and choose **Edit**. **Create** shows the editor, and **Preview**
+shows the rendered page. When the window is wide enough, **Split** shows both
+side by side.
 
-## Editing and preservation
+![Markdown editing alongside the live preview in Galpium](images/editor.jpg)
 
-**Edit** offers **Create**, **Split** and **Preview** modes. Use **⌘B** for bold
-and **⌘I** for italics. The formatting menu provides headings, lists, quotes,
-code, links, tables and file attachments. You can also drop files into the
-editor or paste an image from the clipboard.
+*Write Markdown alongside its live preview.*
 
-Live preview leaves the text, cursor and Korean input composition intact. Finish
-input composition before saving. **⌘S** or **Save** records the page and keeps
-the editor open. **Done** saves changes and returns to reading. **Back** checks
-for unsaved changes. Switching views or saving preserves the current page's
-undo history.
+The **Format** menu inserts headings, lists, quotes, code, links and tables.
+Choose **Attach Files**, drop files into the editor, or paste an image from the
+clipboard. Under **Page Settings · Sources, Tags & Summary**, set tags, pin the
+page, link materials and describe the changes. Separate tags with commas.
 
-In page settings, enter comma-separated tags and set the pin, sources and change
-summary. Linking materials is optional. A page you write directly does not
-automatically create a separate original. Preserved original text and file
-contents remain unchanged; you can rename materials.
+**Save** records your changes and keeps the editor open. **Done** saves and
+returns to reading. **Back** asks how to handle any unsaved changes.
 
-Page bodies have a limit of 64 KiB and original text has a limit of 256 KiB.
-When creating a page from a large original, Galpium inserts space for notes and
-a source link instead of copying the entire original. File attachments have a
-limit of 150 MiB; attachment bytes sent through MCP have a limit of 2 MiB.
+## Managing materials
 
-## Drafts and conflicts
+**Materials** holds text, PDFs, images, audio and other files. Choose **Add
+Material → Add Text…** to preserve copied text, or **Import Files…** to add a
+file. You can also drop files onto the materials list. Imported files can be up
+to 150 MiB each.
 
-When you pause typing, Galpium preserves your edit as a local draft. This is
-shown separately from saving the page. After quitting, reopen it from **Saved
-Drafts → Recover** on the home screen. A draft retains its original base
-revision and does not automatically overwrite the latest page.
+Open a material to read its original text or see a preview. PDFs offer
+**Preview / Text**, and audio has a player. **Open** opens a file in an external
+app; **Show in Finder** reveals its stored location.
 
-If the app or AI has already changed the same page, saving stops and shows a
-comparison with the latest revision. **Save Draft as New Revision** records
-the draft you reviewed over the latest page. Decide after comparing; earlier
-versions remain in history. Archiving and restoring also check revisions.
+Each material's **…** menu offers rename, archive, restore and delete. Renaming
+a file preserves its extension. Original contents cannot be edited in place;
+add an updated file as a new material. Click the link count to see pages,
+materials, drafts and history that reference it. Materials with remaining
+references cannot be deleted.
 
-## Reading and navigation
+## Searching
 
-Click anywhere on the **My Wiki**, **Materials** or **Archive** sidebar rows.
-Only one destination is active, and hovering highlights a row. Returning to
-**My Wiki** clears the archive filter. Home, search, archive and materials
-lists also open when you click anywhere on a row, with a smooth hover highlight.
+Press **⌘K** to focus the search field. **My Wiki** searches pages, and
+**Materials** searches materials. Filter materials by type or narrow page
+results by tag.
 
-Use the bottom-right gear's **Settings** menu to open **App Settings…**, **AI
-Connection** or **Check Wiki Structure**. Access materials from the sidebar.
-You can also open app settings with **⌘,**.
+Search combines keywords with meaning, so a different phrase or a question in
+another language can find related items. Text queries can also find visual
+content in images and PDF pages, and content in audio segments. A PDF result
+opens the matching page; an audio result opens at the start of the matching
+segment. Audio does not play automatically.
 
-Use the top back/forward buttons or **⌘[ / ⌘]** to move through page and original
-navigation history. Horizontal swipes follow the macOS page-swipe setting.
-Navigation gestures are disabled while editing so they do not interrupt input
-or horizontal scrolling. During a swipe, the document follows your fingers and
-shows a direction indicator. Cancelling returns it to its starting position;
-completing the swipe briefly fades to the previous or next document.
+Indexing runs in the background after content is added. Keyword results remain
+available while the index is preparing or semantic search is unavailable.
+Archive searches use keywords. Search runs on your Mac with the model included
+in the app.
 
-**⌘K** focuses search. Active pages combine keyword search with Korean, English
-and Japanese paragraph-level semantic search. You can find related documents
-with different wording or a question in another language. Tag and archive-state
-filters apply to all results. Text queries also search readable material text,
-original images, PDF page visuals and audio segments. Archived items use keyword search.
+Galpium does not generate OCR text for images or scanned PDFs, or transcripts
+for audio. Video indexing is not supported. A similar result does not establish
+that it answers your question or contains an exact quotation. Open the original
+to check its contents.
 
-EmbeddingGemma 2 is bundled with the app and is not loaded when there are no
-pages or materials. After content is added, paragraph and material indexing runs in the background
-and search requests take priority. Keyword results appear while it gets ready.
-The shared worker and model shut down after 60 seconds without search or indexing
-work. The app and MCP share the worker when using the same library. Read the
-bundled model's terms and licenses under **Model and Open Source Licenses**
-in settings.
+## Links and citation footnotes
 
-A similarity score is not evidence that the answer exists in a result. Read the
-page and original. The index is derived data that can be rebuilt; it does not
-affect the originals or revision history in backups and exports. Keyword search
-remains available if the model fails.
+Choose **More → Copy Link** on a page to copy a `[[page-slug]]` link, then paste
+it into another page. **Sources & Backlinks** shows linked materials and pages
+that link to the current page.
 
-`[[page-slug]]` links to a wiki page, and `[Original](source:source-slug)` links
-to a source. Use **More → Copy Link** to obtain a page identifier. **Sources &
-Backlinks** shows originals and incoming links. Safe HTTP, HTTPS and mail links
-can be opened. External images appear as links and are not automatically
-downloaded. HTML remains plain source text and is not executed.
-Existing local chat links in the form `codex://threads/<chat-UUID>` open in
-ChatGPT desktop. App-command links that create chats or change settings cannot
-be used as sources.
+To quote a passage from a material:
 
-## History, archive and restore
+1. Edit the page and expand **Page Settings · Sources, Tags & Summary**.
+2. Find the material and choose **Cite…**.
+3. Select an original page and copy the exact passage into the quotation field.
+4. Choose **Insert Footnote**, then save the page.
 
-Use **More → History** to select any revision and compare it with the current
-page. Restoring brings the past title, body, sources, tags and pin state into a
-new active revision. **Archive Page…** preserves the content, history and
-attachments. You can restore it from the archive.
+A citation footnote can be inserted only when the passage exists in the
+original. While reading, click a footnote number to see the quotation and
+choose **View Original** to open its location. Saved citations remain intact
+after renaming a material or rebuilding the search index. Image and audio
+search matches cannot themselves serve as verified quotation passages.
 
-**Check Wiki Structure** lists broken links, orphan pages, originals that have
-not been organized and missing attachments. It does not check factual accuracy.
+Ordinary explanatory footnotes are also supported.
 
-## Materials and footnotes
+```markdown
+Add a note to a sentence.[^note]
 
-Manage text, PDFs, images, audio and other files in a single list under **Materials**
-in the sidebar. Use the search at the top to find materials by name or content. Use
-**Add Material** to add a file or text, or drop files onto the list. Click a
-row to open the material's details. PDFs offer **Preview / Text**, and images
-have a thumbnail preview. Galpium does not create OCR text or audio transcripts.
-Images and PDF pages are searched by visual content, and audio by segment content;
-results identify the original page or time segment. Selecting a PDF result opens
-the matched page; an audio result opens a paused player at the segment's start.
-Start playback when ready. A visual or audio similarity
-match is not a verified quotation. Exact citation footnotes require an actual
-passage in the material's readable original text. Video indexing is not included.
-
-Click a reference count to see references from current pages, materials, drafts
-and history. The **…** menu offers rename, open in an external app, show in
-Finder, archive, restore and delete. Referenced materials cannot be deleted.
-Use the archive's **Pages / Materials** filter to restore each type. Renaming
-a file preserves its extension.
-
-Link materials in page settings or choose **Cite…**. Select an original page
-and an actual passage, then choose **Insert Footnote** to connect a number in
-the body with a footnote below the document. A passage absent from the original
-cannot be inserted. Click a footnote number to read the quote in a popover, then
-use **View Original** to open its location. The return button beside a footnote
-jumps back to the citing sentence. Ordinary explanatory footnotes are also
-supported. Markdown editing and export retain the `[^ref-id]` / `[^ref-id]: text`
-syntax.
-
-Verified footnotes preserve the material ID, original hash, extraction snapshot
-ID, page and quoted passage in the revision. The requested prompt and chat link
-are stored as a generation record in a separate text material. Enter a web
-address or chat deep link in the same **Source URL · Optional** field. For a
-local chat source, **Open in ChatGPT** in the material's details returns to the
-chat. Web addresses and chat deep links in the record's body are also clickable
-without changing the original text.
-
-Quoted passages remain intact after renaming, reindexing and backup restoration.
-Verifying that a quote exists does not guarantee a statement's factual accuracy
-or the validity of its interpretation.
-
-## Backups and importing
-
-**Wiki → Full Backup** creates a consistent SQLite snapshot, original attachments
-and a checksum manifest in a new folder. A failure before completion is not
-shown as a completed backup. Keep the entire backup folder together. Copying
-only a live database file can miss recent WAL contents, so use the app's backup
-function.
-
-**Import Backup** verifies checksums and reuses only items identical to existing
-data. The same identifier with different contents stops the import with an
-error and leaves the existing wiki unchanged. Pages, originals, history,
-attachments and logs are imported; existing local drafts are not overwritten.
-You can cancel ongoing file operations. Already preserved original attachments
-are not deleted by cancellation or page archiving.
-
-Markdown export preserves the body. Use a Galpium full backup to preserve all
-internal page, source and attachment references.
-
-## AI connection
-
-The Galpium book icon in the Mac menu bar shows the current wiki's MCP
-connection state and client list. An open book means connected; a closed book
-means disconnected. Request activity appears in its menu. **Open Galpium**
-reopens the app window after you close it. The menu also offers **AI Connection
-Settings** and **Test MCP Connection**. Reconnect MCP clients still running
-an older version to enable the current status display.
-
-Open **Settings → AI Connection** for connection information. The Codex plugin
-includes the MCP connection settings, so you can connect through the plugin.
-For a manual connection, copy the settings into Codex's `config.toml`. With
-the app in Applications:
-
-```toml
-[mcp_servers.galpium]
-command = "/Applications/Galpium.app/Contents/MacOS/galpium-mcp"
+[^note]: Additional explanation.
 ```
 
-Add these settings to Codex's `config.toml`. To use another library, specify
-`args = ["--library", "/absolute/path/to/library"]`. The plugin combines the same
-MCP with a skill for collecting materials, searching, citing footnotes and
-updating safely. The format follows the [official OpenAI MCP documentation](https://developers.openai.com/codex/mcp).
+External web links can be opened. External images appear as links and are not
+downloaded automatically.
 
-To install for local chats in ChatGPT desktop, first install Galpium.app and
-ChatGPT.app in Applications.
+## Preserving the context of AI work
 
-1. Extract the distributed ZIP.
-2. Open the extracted **Galpium-Codex** folder. It contains the installer
-   **Install Galpium Plugin.command**, the **plugin** folder, and **LICENSE** and
-   **NOTICE** files.
-3. Double-click **Install Galpium Plugin.command**. A Terminal window opens and
-   installs the plugin. Wait for the **Galpium installed.** message.
-4. Quit ChatGPT with **⌘Q**, reopen it, and select **@Galpium** in a new local chat.
+When AI helps organize a page, you can preserve the requested prompt and chat
+link in a text material and link it to the page. This records the scope of the
+request and lets you return to the original conversation.
 
-The installer registers a local marketplace and enables the plugin using
-ChatGPT's bundled runtime. A separate Codex CLI installation or manual
-`config.toml` edit is not required.
+The text material's **Source URL · Optional** field accepts a web address or a
+`codex://threads/<chat-UUID>` link to an existing local chat. A supported chat
+link enables **Open in ChatGPT** in the material's details. Opening it requires
+the corresponding desktop app and access to the chat.
 
-**Plugin archive upload** is a separate route for registering a package on a
-server. This distribution is for a local marketplace that runs Galpium on your
-current Mac. Cloud Chat/Work requires a separate remote MCP connection.
-Local marketplace installation follows the [official OpenAI plugin documentation](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually).
+## Drafts, history and archive
 
-When installing from the source repository, use:
+When you pause typing, Galpium preserves the edits as a local draft. Preserving
+a draft is separate from saving a page. On the next launch, open **Saved
+Drafts → Recover** and save the recovered page.
 
-```sh
-sh scripts/install-plugin.command
+If AI or another window changes the same page first, a comparison with the
+latest version opens. **Save Draft as New Revision** saves the draft you have
+reviewed as a new revision. Earlier content remains in history.
+
+Use **More → History** to compare previous revisions with the current page and
+restore one. Restoring creates a new revision with the earlier contents and
+preserves existing history. **Archive Page…** moves a page to the archive while
+keeping its content and history. The archive's **Pages / Materials** filter
+helps you find items to restore.
+
+**Check Wiki Structure** in the settings menu lists broken links, orphan pages,
+originals that have not been organized and missing attachments. Check factual accuracy and
+interpretation separately by reading the original material.
+
+## Backups and export
+
+Choose **Wiki → Full Backup…** and select a destination. A backup includes
+pages, materials, all revision history and original attachments. Keep the
+entire backup folder together.
+
+**Import Backup…** adds a backup to the current library. It reuses identical
+items already present and does not overwrite local drafts. If an item with the
+same identifier has different contents, the import stops rather than
+overwriting existing content.
+
+**More → Export Markdown…** saves one page's body to a file. Use a full backup
+to preserve internal links, materials, citations and history together.
+
+## Connecting AI
+
+To connect a local chat in ChatGPT desktop, install Galpium and ChatGPT in
+**Applications**, then install the plugin.
+
+1. Download and extract the [plugin ZIP](https://github.com/KimEJ/Galpium/releases/download/v0.0.2/Galpium-Codex-Plugin-0.0.2.zip).
+2. Open the **Galpium-Codex** folder. It contains **Install Galpium
+   Plugin.command**, the **plugin** folder, and **LICENSE** and **NOTICE** files.
+3. Double-click **Install Galpium Plugin.command** and wait for **Galpium
+   installed.**
+4. Quit ChatGPT with **⌘Q**, reopen it, and select **@Galpium** in a new local
+   chat.
+
+The installer registers the connection settings. A separate CLI installation
+or configuration-file edit is not needed. In the connected chat, ask AI to find
+materials, organize related pages or create a new page. The plugin guides AI
+to preserve citations and revision history when working with your wiki.
+
+An open book icon in the Mac menu bar indicates a connected MCP client. Its
+menu shows clients and activity. If the connection fails, use **Settings → AI
+Connection → Test MCP Connection** to check the app's connection, then
+reconnect the client.
+
+Storage and search are local. When a connected AI client reads wiki content,
+the data-transfer policies of that client and its model provider apply.
+
+### Other MCP clients
+
+For clients that support stdio MCP connections, register the executable below.
+Adapt the configuration format to your client.
+
+```json
+{
+  "mcpServers": {
+    "galpium": {
+      "command": "/Applications/Galpium.app/Contents/MacOS/galpium-mcp"
+    }
+  }
+}
 ```
 
-**Test MCP Connection** starts the actual bundled MCP process and checks
-initialization and the list of 21 tools.
+To select another library, add
+`"args": ["--library", "/absolute/path/to/library"]`. See the
+[portability guide](PORTABILITY.md) for shell use and direct integration.
 
-Search embeddings use the bundled local model. The connected AI client reads
-and organizes materials, and its external data-transfer policy applies. Do not
-treat a search result as proof; read the current page and original.
+## Language and library settings
 
-## Selecting and upgrading a library
+Open **Settings → App Settings…** from the bottom gear menu, or press **⌘,**.
+**Language** follows the system language by default; you can choose 한국어,
+English or 日本語. Changing it updates the interface and menus without
+translating pages or materials.
 
-Use **Open or Create Library…** in settings to choose an existing Galpium folder
-or a new empty folder. Your previous folder remains intact. The app and MCP use
-the same selection; an explicit library path in an MCP configuration takes
-precedence.
+The default library is `~/Library/Application Support/Galpium/`. Use **Open or
+Create Library…** to select an existing library or a new empty folder. The
+previous folder remains intact. After switching libraries, reconnect MCP
+clients to use the new library. An explicit library path in an MCP configuration
+takes precedence.
 
-Storage formats v1 and v2 are backed up and converted to v3 on first launch.
-Original bodies and existing revision snapshots are preserved while the current
-page/source relationships and search index are built. A failed conversion rolls
-back to the previous format. An older app will not overwrite a library created
-by a newer app version.
+Make a full backup before updating. If a new search model requires the index
+to be rebuilt, pages, originals, citations and history remain intact. See the
+[changelog](CHANGELOG.md) for changes by version. Built-in cloud
+synchronization is not provided.
 
-When the search model changes in 0.0.2, the existing library's derived index is
-rebuilt automatically. Original files, extraction snapshots, pages, citations and
-revision history are preserved. Keyword search remains available during reindexing.
-
-Completion and information notices close automatically after 4 seconds. A new
-notice restarts the timer. Errors stay visible until you click the close button.
+Closing the window keeps the app running in the background. Reopen it from the
+Dock or **Open Galpium** in the menu bar. Press **⌘Q** to quit.
